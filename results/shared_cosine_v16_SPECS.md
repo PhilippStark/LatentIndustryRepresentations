@@ -62,10 +62,7 @@ primary results.
 
 ## Provenance
 
-- Built and trained by `CPU_scale_ablation_v15_t124816.sh` (job 3551807,
-  2026-08-28), under the working name
-  `shared_cosine_v15_textprior_pca_no_nace_trade_innovation_scale_t124_labormin10`.
-- Renamed and promoted to `shared_cosine_v16` on 2026-08-31; its embedding,
+- Built as `shared_cosine_v16` on 2026-08-31; its embedding,
   evaluation, and regional-outcome artifacts were moved from
   `DataLatentIndustryRepresentations/ablations/` into the main
   `DataLatentIndustryRepresentations/` tree and `results/` under the new
