@@ -1,0 +1,22 @@
+{
+  "max_year": 2019,
+  "regime_years": {
+    "SNI92": [
+      1990,
+      2001
+    ],
+    "SNI02": [
+      2002,
+      2006
+    ],
+    "SNI07": [
+      2007,
+      2019
+    ]
+  },
+  "min_ownership_count": 3,
+  "max_codes_per_org": 30,
+  "rows": 15912,
+  "output": "/lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/processed/ownership_relatedness.parquet",
+  "flows_by_year": "/lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/processed/ownership_flows_by_year.parquet"
+}

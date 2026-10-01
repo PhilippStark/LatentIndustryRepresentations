@@ -1,0 +1,360 @@
+=== 1/3 P04_entry.py --density-var ew ===
+Run: shared_cosine_v15_textprior_pca_no_nace_trade_innovation   density_var=ew   tau=1.0   min_workers>5   min_worker_ratio>=2.5000%   sd_mult=2.0   include_firm=False
+
+Loading /lunarc/nobackup/projects/lu2025-17-39/SCB/Preprocessed/individ_cleaned_1990-2019.parquet …
+  1,931,266 (municipality, year, industry) observations
+  Years: 1990–2019
+  Municipalities: 290
+  Industries in data: 1031
+
+Loading embeddings from /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/embedding/shared_cosine_v15_textprior_pca_no_nace_trade_innovation …
+  sni07: 615 codes  dim=64
+  sni02: 514 codes  dim=64
+  sni92: 505 codes  dim=64
+
+Building candidate-entry set (municipality-industry-year candidate observations where the industry is absent at year t) …
+
+  SNI92  (505 codes):
+    1990:  candidate rows=89,109  entry_industry rate=4.9333%
+    1991:  candidate rows=91,147  entry_industry rate=5.1148%
+    1992:  candidate rows=91,768  entry_industry rate=5.5368%
+    1993:  candidate rows=91,890  entry_industry rate=6.1650%
+    1994:  candidate rows=90,488  entry_industry rate=5.3466%
+    1995:  candidate rows=89,976  entry_industry rate=5.3181%
+    1996:  candidate rows=89,269  entry_industry rate=5.6627%
+    1997:  candidate rows=88,446  entry_industry rate=4.5802%
+    1998:  candidate rows=88,615  entry_industry rate=4.7757%
+    1999:  candidate rows=88,731  entry_industry rate=4.4449%
+    2000:  candidate rows=88,687  entry_industry rate=4.5272%
+
+  SNI02  (514 codes):
+    2002:  candidate rows=89,961  entry_industry rate=5.0566%
+    2003:  candidate rows=89,210  entry_industry rate=6.1417%
+    2004:  candidate rows=87,341  entry_industry rate=4.3622%
+    2005:  candidate rows=87,145  entry_industry rate=4.8035%
+
+  SNI07  (615 codes):
+    2007:  candidate rows=106,137  entry_industry rate=4.3755%
+    2008:  candidate rows=105,878  entry_industry rate=4.3446%
+    2009:  candidate rows=105,399  entry_industry rate=4.1281%
+    2010:  candidate rows=105,227  entry_industry rate=4.3259%
+    2011:  candidate rows=105,177  entry_industry rate=4.0332%
+    2012:  candidate rows=105,077  entry_industry rate=3.9333%
+    2013:  candidate rows=104,984  entry_industry rate=3.5453%
+    2014:  candidate rows=105,197  entry_industry rate=3.6503%
+    2015:  candidate rows=105,408  entry_industry rate=3.3460%
+    2016:  candidate rows=105,844  entry_industry rate=3.6809%
+    2017:  candidate rows=106,062  entry_industry rate=3.4244%
+    2018:  candidate rows=106,311  entry_industry rate=3.9093%
+
+Candidate-entry set panel: 2,608,484 rows
+  entry_industry rate: 4.5253%
+    mean density | entry_industry=1: 0.07860
+    mean density | entry_industry=0: 0.02423
+
+Density pre-standardised (÷ SD = 0.101365, pooled across all periods purely as a fixed unit) — β reads as Δ P(entry) per 1-SD increase in density
+
+============================================================
+Relatedness density → entry  (per classification period, industry + muni×year FE, SE clustered by muni)
+============================================================
+
+  -- SNI92 --  (within-FE density_std SD=0.405243, 16.4222% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.032892  SE=0.002266  t=14.516  p=9.596e-48
+      N=988,126  R²=0.00403  partial r=+0.0635
+      baseline rate=5.1334%  →  β = +64.1% of baseline  per 1-SD density
+
+  -- SNI02 --  (within-FE density_std SD=0.368570, 13.5844% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.027260  SE=0.002362  t=11.541  p=8.240e-31
+      N=353,657  R²=0.00236  partial r=+0.0486
+      baseline rate=5.0965%  →  β = +53.5% of baseline  per 1-SD density
+
+  -- SNI07 --  (within-FE density_std SD=0.370183, 13.7035% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.026299  SE=0.001899  t=13.849  p=1.295e-43
+      N=1,266,701  R²=0.00277  partial r=+0.0527
+      baseline rate=3.8916%  →  β = +67.6% of baseline  per 1-SD density
+
+============================================================
+Year-by-year coefficients  (density → entry_industry)
+============================================================
+  1990→1991:  entry_industry β=+0.02967 (p=1.95e-13)   N=89,109
+  1991→1992:  entry_industry β=+0.03971 (p=2.22e-35)   N=91,147
+  1992→1993:  entry_industry β=+0.04011 (p=9.65e-40)   N=91,768
+  1993→1994:  entry_industry β=+0.03637 (p=7.80e-27)   N=91,890
+  1994→1995:  entry_industry β=+0.03732 (p=8.37e-33)   N=90,488
+  1995→1996:  entry_industry β=+0.03637 (p=4.40e-35)   N=89,976
+  1996→1997:  entry_industry β=+0.03798 (p=1.72e-30)   N=89,269
+  1997→1998:  entry_industry β=+0.02747 (p=6.30e-17)   N=88,446
+  1998→1999:  entry_industry β=+0.02911 (p=3.48e-23)   N=88,615
+  1999→2000:  entry_industry β=+0.02649 (p=2.56e-27)   N=88,731
+  2000→2001:  entry_industry β=+0.02763 (p=3.26e-28)   N=88,687
+  2002→2003:  entry_industry β=+0.02600 (p=7.74e-23)   N=89,961
+  2003→2004:  entry_industry β=+0.03235 (p=3.28e-24)   N=89,210
+  2004→2005:  entry_industry β=+0.02144 (p=3.40e-15)   N=87,341
+  2005→2006:  entry_industry β=+0.02800 (p=8.37e-22)   N=87,145
+  2007→2008:  entry_industry β=+0.02387 (p=9.82e-25)   N=106,137
+  2008→2009:  entry_industry β=+0.02822 (p=1.07e-28)   N=105,878
+  2009→2010:  entry_industry β=+0.02818 (p=5.05e-29)   N=105,399
+  2010→2011:  entry_industry β=+0.03024 (p=2.12e-26)   N=105,227
+  2011→2012:  entry_industry β=+0.03060 (p=5.17e-32)   N=105,177
+  2012→2013:  entry_industry β=+0.02765 (p=3.69e-29)   N=105,077
+  2013→2014:  entry_industry β=+0.02672 (p=1.10e-30)   N=104,984
+  2014→2015:  entry_industry β=+0.02596 (p=1.69e-26)   N=105,197
+  2015→2016:  entry_industry β=+0.02450 (p=5.98e-26)   N=105,408
+  2016→2017:  entry_industry β=+0.02438 (p=1.13e-24)   N=105,844
+  2017→2018:  entry_industry β=+0.02457 (p=5.24e-24)   N=106,062
+  2018→2019:  entry_industry β=+0.02628 (p=1.47e-27)   N=106,311
+
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_entry.png
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet  (2,608,484 rows)
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_entry/  (shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet, _year_coefs.csv, _summary.csv)
+
+Done.
+=== 2/3 P04_exit.py --density-var ew ===
+Run: shared_cosine_v15_textprior_pca_no_nace_trade_innovation   density_var=ew   tau=1.0   min_workers>5   min_worker_ratio>=2.5000%   sd_mult=2.0   include_firm=False
+
+Loading /lunarc/nobackup/projects/lu2025-17-39/SCB/Preprocessed/individ_cleaned_1990-2019.parquet …
+  1,931,266 (municipality, year, industry) observations
+  Years: 1990–2019
+  Municipalities: 290
+  Industries in data: 1031
+
+Loading embeddings from /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/embedding/shared_cosine_v15_textprior_pca_no_nace_trade_innovation …
+  sni07: 615 codes  dim=64
+  sni02: 514 codes  dim=64
+  sni92: 505 codes  dim=64
+
+Building candidate-exit set (municipality-industry-year candidate observations where the industry is present at year t) …
+
+  SNI92  (505 codes):
+    1990:  candidate rows=57,341  exit_industry rate=11.2223%
+    1991:  candidate rows=55,303  exit_industry rate=9.5601%
+    1992:  candidate rows=54,682  exit_industry rate=9.5022%
+    1993:  candidate rows=54,560  exit_industry rate=7.8354%
+    1994:  candidate rows=55,962  exit_industry rate=7.7249%
+    1995:  candidate rows=56,474  exit_industry rate=7.2423%
+    1996:  candidate rows=57,181  exit_industry rate=7.4273%
+    1997:  candidate rows=58,004  exit_industry rate=7.2771%
+    1998:  candidate rows=57,835  exit_industry rate=7.5110%
+    1999:  candidate rows=57,719  exit_industry rate=6.7742%
+    2000:  candidate rows=57,763  exit_industry rate=6.8279%
+
+  SNI02  (514 codes):
+    2002:  candidate rows=59,099  exit_industry rate=6.4147%
+    2003:  candidate rows=59,850  exit_industry rate=6.0401%
+    2004:  candidate rows=61,719  exit_industry rate=5.8491%
+    2005:  candidate rows=61,915  exit_industry rate=6.0147%
+
+  SNI07  (615 codes):
+    2007:  candidate rows=72,213  exit_industry rate=6.0792%
+    2008:  candidate rows=72,472  exit_industry rate=5.6836%
+    2009:  candidate rows=72,951  exit_industry rate=5.7203%
+    2010:  candidate rows=73,123  exit_industry rate=6.1622%
+    2011:  candidate rows=73,173  exit_industry rate=5.6701%
+    2012:  candidate rows=73,273  exit_industry rate=5.5027%
+    2013:  candidate rows=73,366  exit_industry rate=5.3676%
+    2014:  candidate rows=73,153  exit_industry rate=5.5295%
+    2015:  candidate rows=72,942  exit_industry rate=5.4427%
+    2016:  candidate rows=72,506  exit_industry rate=5.6809%
+    2017:  candidate rows=72,288  exit_industry rate=5.3591%
+    2018:  candidate rows=72,039  exit_industry rate=5.6150%
+
+Candidate-exit set panel: 1,738,906 rows
+  exit_industry  rate: 6.5772%
+    mean density | exit_industry=1: 0.07586
+    mean density | exit_industry=0: 0.12165
+
+Density pre-standardised (÷ SD = 0.116158, pooled across all periods purely as a fixed unit) — β reads as Δ P(exit) per 1-SD increase in density
+
+============================================================
+Relatedness density → exit  (per classification period, industry + muni×year FE, SE clustered by muni)
+============================================================
+
+  -- SNI92 --  (within-FE density_std SD=0.379526, 14.4040% of raw variance retained)
+    exit_industry (drops from significant local size to zero)
+      coef=-0.049073  SE=0.002388  t=-20.549  p=7.912e-94
+      N=622,824  R²=0.00518  partial r=-0.0720
+      baseline rate=8.0716%  →  β = -60.8% of baseline  per 1-SD density
+
+  -- SNI02 --  (within-FE density_std SD=0.371729, 13.8182% of raw variance retained)
+    exit_industry (drops from significant local size to zero)
+      coef=-0.036535  SE=0.001884  t=-19.392  p=9.088e-84
+      N=242,583  R²=0.00354  partial r=-0.0595
+      baseline rate=6.0763%  →  β = -60.1% of baseline  per 1-SD density
+
+  -- SNI07 --  (within-FE density_std SD=0.355820, 12.6608% of raw variance retained)
+    exit_industry (drops from significant local size to zero)
+      coef=-0.042852  SE=0.001949  t=-21.983  p=4.201e-107
+      N=873,499  R²=0.00467  partial r=-0.0683
+      baseline rate=5.6508%  →  β = -75.8% of baseline  per 1-SD density
+
+============================================================
+Year-by-year coefficients  (density → exit_industry)
+============================================================
+  1990→1991:  exit_industry β=-0.06322 (p=5.54e-45)   N=57,341
+  1991→1992:  exit_industry β=-0.05776 (p=4.94e-49)   N=55,303
+  1992→1993:  exit_industry β=-0.05772 (p=4.14e-50)   N=54,682
+  1993→1994:  exit_industry β=-0.05312 (p=1.73e-51)   N=54,560
+  1994→1995:  exit_industry β=-0.04523 (p=1.12e-31)   N=55,962
+  1995→1996:  exit_industry β=-0.04882 (p=8.00e-43)   N=56,474
+  1996→1997:  exit_industry β=-0.04782 (p=1.85e-46)   N=57,181
+  1997→1998:  exit_industry β=-0.04688 (p=2.16e-51)   N=58,004
+  1998→1999:  exit_industry β=-0.04417 (p=6.75e-37)   N=57,835
+  1999→2000:  exit_industry β=-0.03654 (p=5.03e-34)   N=57,719
+  2000→2001:  exit_industry β=-0.04041 (p=3.45e-37)   N=57,763
+  2002→2003:  exit_industry β=-0.03282 (p=8.53e-37)   N=59,099
+  2003→2004:  exit_industry β=-0.03583 (p=2.95e-42)   N=59,850
+  2004→2005:  exit_industry β=-0.03453 (p=3.20e-37)   N=61,719
+  2005→2006:  exit_industry β=-0.04236 (p=3.30e-56)   N=61,915
+  2007→2008:  exit_industry β=-0.03912 (p=1.70e-41)   N=72,213
+  2008→2009:  exit_industry β=-0.04022 (p=1.08e-33)   N=72,472
+  2009→2010:  exit_industry β=-0.04053 (p=1.95e-48)   N=72,951
+  2010→2011:  exit_industry β=-0.04579 (p=9.10e-52)   N=73,123
+  2011→2012:  exit_industry β=-0.04360 (p=1.54e-65)   N=73,173
+  2012→2013:  exit_industry β=-0.04236 (p=1.57e-58)   N=73,273
+  2013→2014:  exit_industry β=-0.04256 (p=6.26e-59)   N=73,366
+  2014→2015:  exit_industry β=-0.04175 (p=3.92e-51)   N=73,153
+  2015→2016:  exit_industry β=-0.04354 (p=7.81e-49)   N=72,942
+  2016→2017:  exit_industry β=-0.04689 (p=8.34e-65)   N=72,506
+  2017→2018:  exit_industry β=-0.04257 (p=9.21e-45)   N=72,288
+  2018→2019:  exit_industry β=-0.04350 (p=2.18e-51)   N=72,039
+
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_exit/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_exit.png
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_exit/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet  (1,738,906 rows)
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_exit/  (shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet, _year_coefs.csv, _summary.csv)
+
+Done.
+=== 3/3 P04_startup_entry.py --density-var ew ===
+Run: shared_cosine_v15_textprior_pca_no_nace_trade_innovation   density_var=ew   tau=1.0   max_founder_size<=10   max_growth_ratio=0.0   include_entry_industry=False
+
+Loading /lunarc/nobackup/projects/lu2025-17-39/SCB/Preprocessed/individ_cleaned_1990-2019.parquet …
+  149,945,787 filtered/harmonized individual-year rows
+  1,931,266 (municipality, year, industry) observations
+  Years: 1990–2019
+  Municipalities: 290
+  Industries in data: 1031
+
+Aggregating to (OrgNr, Year) for startup eligibility …
+  14,105,102 (OrgNr, Year) rows
+  2,053,389 OrgNr-year rows pass absent-in-t-1 + single-CfarNr + founder-size<=10 filters
+
+Loading /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/raw/FAD_1990-2019.parquet …
+  Kvar codes counted as genuine new-firm formation:
+    Kvar=01: New through split-up
+    Kvar=02: New (other)
+    Kvar=03: New (no predecessor found; no employees were employed in the previous year)
+    Kvar=06: New through split-up (2004 methodology adjustment)
+    Kvar=07: New (other, 2004 methodology adjustment)
+    Kvar=08: New (no predecessor found, 2004 methodology adjustment)
+  1,371,670 FAD rows with a qualifying Kvar code
+  850,965 OrgNr-year rows are Grillitsch-compliant startups (pre growth-ratio filter)
+  330,848 distinct (industry, municipality, year) cells with at least one qualifying startup
+
+Loading embeddings from /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/embedding/shared_cosine_v15_textprior_pca_no_nace_trade_innovation …
+  sni07: 615 codes  dim=64
+  sni02: 514 codes  dim=64
+  sni92: 505 codes  dim=64
+
+Building candidate-entry set (municipality-industry-year candidate observations where the industry is absent at year t) …
+
+  SNI92  (505 codes):
+    1990:  candidate rows=89,109
+    1991:  candidate rows=91,147
+    1992:  candidate rows=91,768
+    1993:  candidate rows=91,890
+    1994:  candidate rows=90,488
+    1995:  candidate rows=89,976
+    1996:  candidate rows=89,269
+    1997:  candidate rows=88,446
+    1998:  candidate rows=88,615
+    1999:  candidate rows=88,731
+    2000:  candidate rows=88,687
+
+  SNI02  (514 codes):
+    2002:  candidate rows=89,961
+    2003:  candidate rows=89,210
+    2004:  candidate rows=87,341
+    2005:  candidate rows=87,145
+
+  SNI07  (615 codes):
+    2007:  candidate rows=106,137
+    2008:  candidate rows=105,878
+    2009:  candidate rows=105,399
+    2010:  candidate rows=105,227
+    2011:  candidate rows=105,177
+    2012:  candidate rows=105,077
+    2013:  candidate rows=104,984
+    2014:  candidate rows=105,197
+    2015:  candidate rows=105,408
+    2016:  candidate rows=105,844
+    2017:  candidate rows=106,062
+    2018:  candidate rows=106,311
+
+Candidate-entry set panel: 2,608,484 rows
+  startup_entry  rate: 0.8388%
+    mean density | startup_entry=1: 0.08719
+    mean density | startup_entry=0: 0.02618
+
+Density pre-standardised (÷ SD = 0.101365, pooled across all periods purely as a fixed unit) — β reads as Δ P(entry) per 1-SD increase in density
+
+============================================================
+Relatedness density → startup entry  (per classification period, industry + muni×year FE, SE clustered by muni)
+============================================================
+
+  -- SNI92 --  (within-FE density_std SD=0.405243, 16.4222% of raw variance retained)
+    startup_entry  (start-up growth: new, single-establishment, <=10-employee firm)
+      coef=+0.005241  SE=0.000406  t=12.910  p=3.970e-38
+      N=988,126  R²=0.00065  partial r=+0.0255
+      baseline rate=0.7127%  →  β = +73.5% of baseline  per 1-SD density
+
+  -- SNI02 --  (within-FE density_std SD=0.368570, 13.5844% of raw variance retained)
+    startup_entry  (start-up growth: new, single-establishment, <=10-employee firm)
+      coef=+0.005083  SE=0.000663  t=7.671  p=1.708e-14
+      N=353,657  R²=0.00041  partial r=+0.0202
+      baseline rate=0.8932%  →  β = +56.9% of baseline  per 1-SD density
+
+  -- SNI07 --  (within-FE density_std SD=0.370183, 13.7035% of raw variance retained)
+    startup_entry  (start-up growth: new, single-establishment, <=10-employee firm)
+      coef=+0.007490  SE=0.000565  t=13.254  p=4.291e-40
+      N=1,266,701  R²=0.00086  partial r=+0.0294
+      baseline rate=0.9221%  →  β = +81.2% of baseline  per 1-SD density
+
+============================================================
+Year-by-year coefficients  (density → startup_entry)
+============================================================
+  1990→1991:  startup_entry β=+0.00592 (p=7.46e-13)   N=89,109
+  1991→1992:  startup_entry β=+0.00566 (p=3.79e-13)   N=91,147
+  1992→1993:  startup_entry β=+0.00688 (p=7.15e-16)   N=91,768
+  1993→1994:  startup_entry β=+0.00079 (p=4.22e-03)   N=91,890
+  1994→1995:  startup_entry β=+0.00679 (p=9.60e-14)   N=90,488
+  1995→1996:  startup_entry β=+0.00617 (p=1.38e-12)   N=89,976
+  1996→1997:  startup_entry β=+0.00545 (p=1.32e-08)   N=89,269
+  1997→1998:  startup_entry β=+0.00374 (p=3.05e-06)   N=88,446
+  1998→1999:  startup_entry β=+0.00640 (p=5.21e-10)   N=88,615
+  1999→2000:  startup_entry β=+0.00554 (p=1.00e-10)   N=88,731
+  2000→2001:  startup_entry β=+0.00544 (p=3.16e-09)   N=88,687
+  2002→2003:  startup_entry β=+0.00317 (p=2.82e-04)   N=89,961
+  2003→2004:  startup_entry β=+0.00485 (p=4.98e-07)   N=89,210
+  2004→2005:  startup_entry β=+0.00621 (p=7.22e-09)   N=87,341
+  2005→2006:  startup_entry β=+0.00635 (p=4.51e-07)   N=87,145
+  2007→2008:  startup_entry β=+0.00645 (p=8.00e-13)   N=106,137
+  2008→2009:  startup_entry β=+0.00648 (p=1.82e-14)   N=105,878
+  2009→2010:  startup_entry β=+0.00801 (p=1.12e-17)   N=105,399
+  2010→2011:  startup_entry β=+0.00837 (p=6.11e-15)   N=105,227
+  2011→2012:  startup_entry β=+0.00785 (p=1.25e-14)   N=105,177
+  2012→2013:  startup_entry β=+0.00686 (p=9.43e-12)   N=105,077
+  2013→2014:  startup_entry β=+0.00761 (p=5.12e-16)   N=104,984
+  2014→2015:  startup_entry β=+0.00605 (p=1.96e-10)   N=105,197
+  2015→2016:  startup_entry β=+0.00787 (p=8.03e-20)   N=105,408
+  2016→2017:  startup_entry β=+0.00830 (p=2.56e-16)   N=105,844
+  2017→2018:  startup_entry β=+0.00675 (p=2.02e-13)   N=106,062
+  2018→2019:  startup_entry β=+0.00868 (p=2.39e-15)   N=106,311
+
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_startup_entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_startup_entry.png
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_startup_entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet  (2,608,484 rows)
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_startup_entry/  (shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_panel.parquet, _year_coefs.csv, _summary.csv)
+
+Done.
+=== Done. ===

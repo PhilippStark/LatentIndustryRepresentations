@@ -1,0 +1,573 @@
+{
+  "schema_version": 1,
+  "study_year_start": 1990,
+  "study_year_end": 2019,
+  "target": {
+    "code_list": "mapping_Municipality.json",
+    "reference_date": "2019-01-01",
+    "expected_code_count": 290,
+    "description": "Canonical municipality identities and codes used by the regional analysis."
+  },
+  "year_semantics": {
+    "source_year_reference_offset": 1,
+    "description": "The SCB register year y uses the municipality division effective on 1 January y+1, so source_year_reference_offset is added before testing official validity and formation years. Alias validity uses official calendar years. Canonical municipality identities are inactive before their official formation year. Historical aliases may map to a canonical code before that code itself was introduced because the canonical code is an analysis identifier, not a claim about the historical code in force.",
+    "new_municipality_policy": "Do not backfill a municipality identity before its official formation year.",
+    "merge_policy": "Where multiple historical source areas have one canonical successor, map all predecessors to that successor for the full study period in which they occur."
+  },
+  "invalid_source_codes": [
+    "0000",
+    "9999"
+  ],
+  "identity_start_year_overrides": {
+    "0140": {
+      "year": 1999,
+      "name": "Nykvarn",
+      "predecessor": "0181 Södertälje"
+    },
+    "0330": {
+      "year": 2003,
+      "name": "Knivsta",
+      "predecessor": "0380 Uppsala"
+    },
+    "0461": {
+      "year": 1992,
+      "name": "Gnesta",
+      "predecessor": "0480 Nyköping"
+    },
+    "0488": {
+      "year": 1992,
+      "name": "Trosa",
+      "predecessor": "0480 Nyköping"
+    },
+    "1443": {
+      "year": 1995,
+      "name": "Bollebygd",
+      "predecessor": "1490 Borås"
+    },
+    "1814": {
+      "year": 1995,
+      "name": "Lekeberg",
+      "predecessor": "1880 Örebro"
+    }
+  },
+  "aliases": [
+    {
+      "source_code": "1121",
+      "canonical_code": "1256",
+      "name": "Östra Göinge",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1137",
+      "canonical_code": "1257",
+      "name": "Örkelljunga",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1160",
+      "canonical_code": "1270",
+      "name": "Tomelilla",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1162",
+      "canonical_code": "1272",
+      "name": "Bromölla",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1163",
+      "canonical_code": "1273",
+      "name": "Osby",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1165",
+      "canonical_code": "1275",
+      "name": "Perstorp",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1166",
+      "canonical_code": "1276",
+      "name": "Klippan",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1167",
+      "canonical_code": "1277",
+      "name": "Åstorp",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1168",
+      "canonical_code": "1278",
+      "name": "Båstad",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1180",
+      "canonical_code": "1290",
+      "name": "Kristianstad",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1181",
+      "canonical_code": "1291",
+      "name": "Simrishamn",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1182",
+      "canonical_code": "1292",
+      "name": "Ängelholm",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1183",
+      "canonical_code": "1293",
+      "name": "Hässleholm",
+      "valid_from": 1990,
+      "valid_to": 1996,
+      "effective_date": "1997-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "source_code": "1504",
+      "canonical_code": "1438",
+      "name": "Dals-Ed",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1507",
+      "canonical_code": "1439",
+      "name": "Färgelanda",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1521",
+      "canonical_code": "1440",
+      "name": "Ale",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1524",
+      "canonical_code": "1441",
+      "name": "Lerum",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1527",
+      "canonical_code": "1442",
+      "name": "Vårgårda",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1535",
+      "canonical_code": "1443",
+      "name": "Bollebygd",
+      "valid_from": 1995,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1552",
+      "canonical_code": "1452",
+      "name": "Tranemo",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1560",
+      "canonical_code": "1460",
+      "name": "Bengtsfors",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1561",
+      "canonical_code": "1461",
+      "name": "Mellerud",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1562",
+      "canonical_code": "1462",
+      "name": "Lilla Edet",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1563",
+      "canonical_code": "1463",
+      "name": "Mark",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1565",
+      "canonical_code": "1465",
+      "name": "Svenljunga",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1566",
+      "canonical_code": "1466",
+      "name": "Herrljunga",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1580",
+      "canonical_code": "1487",
+      "name": "Vänersborg",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1581",
+      "canonical_code": "1488",
+      "name": "Trollhättan",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1582",
+      "canonical_code": "1489",
+      "name": "Alingsås",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1583",
+      "canonical_code": "1490",
+      "name": "Borås",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1584",
+      "canonical_code": "1491",
+      "name": "Ulricehamn",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1585",
+      "canonical_code": "1492",
+      "name": "Åmål",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1602",
+      "canonical_code": "1444",
+      "name": "Grästorp",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1603",
+      "canonical_code": "1445",
+      "name": "Essunga",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1622",
+      "canonical_code": "0642",
+      "name": "Mullsjö",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1623",
+      "canonical_code": "0643",
+      "name": "Habo",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1637",
+      "canonical_code": "1446",
+      "name": "Karlsborg",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1643",
+      "canonical_code": "1447",
+      "name": "Gullspång",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1660",
+      "canonical_code": "1470",
+      "name": "Vara",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1661",
+      "canonical_code": "1471",
+      "name": "Götene",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1662",
+      "canonical_code": "1472",
+      "name": "Tibro",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1663",
+      "canonical_code": "1473",
+      "name": "Töreboda",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1680",
+      "canonical_code": "1493",
+      "name": "Mariestad",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1681",
+      "canonical_code": "1494",
+      "name": "Lidköping",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1682",
+      "canonical_code": "1495",
+      "name": "Skara",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1683",
+      "canonical_code": "1496",
+      "name": "Skövde",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1684",
+      "canonical_code": "1497",
+      "name": "Hjo",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1685",
+      "canonical_code": "1498",
+      "name": "Tidaholm",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1686",
+      "canonical_code": "1499",
+      "name": "Falköping",
+      "valid_from": 1990,
+      "valid_to": 1997,
+      "effective_date": "1998-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "source_code": "1917",
+      "canonical_code": "0331",
+      "name": "Heby",
+      "valid_from": 1990,
+      "valid_to": 2006,
+      "effective_date": "2007-01-01",
+      "change_type": "county_code_change",
+      "source": "https://www.scb.se/contentassets/5f7f821206e24fc88501f4b6f5d1c559/mis-2007.1.pdf"
+    }
+  ],
+  "sources": [
+    {
+      "description": "SCB municipality changes 1974-present",
+      "url": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/knkodnyckel.xls"
+    },
+    {
+      "description": "SCB Skåne code changes effective 1997-01-01",
+      "url": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/skanekod.xls"
+    },
+    {
+      "description": "SCB Västra Götaland code changes effective 1998-01-01",
+      "url": "https://www.scb.se/contentassets/6a74a52b28994e2bbe23dcdd6754987c/vgkodandring.xls"
+    },
+    {
+      "description": "SCB regional divisions 2007; Heby 1917 to 0331",
+      "url": "https://www.scb.se/contentassets/5f7f821206e24fc88501f4b6f5d1c559/mis-2007.1.pdf"
+    }
+  ]
+}

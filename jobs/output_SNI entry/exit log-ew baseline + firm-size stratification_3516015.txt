@@ -1,0 +1,135 @@
+=== 1/3 P04_entry.py  (log-ew baseline, --include-firm --stratify-firm-size) ===
+Run: shared_cosine_v15_textprior_pca_no_nace_trade_innovation   density_var=ew   tau=1.0   min_workers>5   min_worker_ratio>=2.5000%   sd_mult=2.0   include_firm=True
+
+Loading /lunarc/nobackup/projects/lu2025-17-39/SCB/Preprocessed/individ_cleaned_1990-2019.parquet …
+  1,931,266 (municipality, year, industry) observations
+  Years: 1990–2019
+  Municipalities: 290
+  Industries in data: 1031
+
+Building establishment-level panel for new-firm detection …
+  14,483,151 (establishment, year) rows
+  185 qualifying new establishments (first seen after 1990, >5 workers, ≥2.5000% of municipality workforce)
+  184 distinct (industry, municipality, year) cells with at least one new establishment
+
+Loading embeddings from /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/embedding/shared_cosine_v15_textprior_pca_no_nace_trade_innovation …
+  sni07: 615 codes  dim=64
+  sni02: 514 codes  dim=64
+  sni92: 505 codes  dim=64
+
+Building candidate-entry set (municipality-industry-year candidate observations where the industry is absent at year t) …
+
+  SNI92  (505 codes):
+    1990:  candidate rows=89,109  entry_industry rate=4.9333%
+    1991:  candidate rows=91,147  entry_industry rate=5.1148%
+    1992:  candidate rows=91,768  entry_industry rate=5.5368%
+    1993:  candidate rows=91,890  entry_industry rate=6.1650%
+    1994:  candidate rows=90,488  entry_industry rate=5.3466%
+    1995:  candidate rows=89,976  entry_industry rate=5.3181%
+    1996:  candidate rows=89,269  entry_industry rate=5.6627%
+    1997:  candidate rows=88,446  entry_industry rate=4.5802%
+    1998:  candidate rows=88,615  entry_industry rate=4.7757%
+    1999:  candidate rows=88,731  entry_industry rate=4.4449%
+    2000:  candidate rows=88,687  entry_industry rate=4.5272%
+
+  SNI02  (514 codes):
+    2002:  candidate rows=89,961  entry_industry rate=5.0566%
+    2003:  candidate rows=89,210  entry_industry rate=6.1417%
+    2004:  candidate rows=87,341  entry_industry rate=4.3622%
+    2005:  candidate rows=87,145  entry_industry rate=4.8035%
+
+  SNI07  (615 codes):
+    2007:  candidate rows=106,137  entry_industry rate=4.3755%
+    2008:  candidate rows=105,878  entry_industry rate=4.3446%
+    2009:  candidate rows=105,399  entry_industry rate=4.1281%
+    2010:  candidate rows=105,227  entry_industry rate=4.3259%
+    2011:  candidate rows=105,177  entry_industry rate=4.0332%
+    2012:  candidate rows=105,077  entry_industry rate=3.9333%
+    2013:  candidate rows=104,984  entry_industry rate=3.5453%
+    2014:  candidate rows=105,197  entry_industry rate=3.6503%
+    2015:  candidate rows=105,408  entry_industry rate=3.3460%
+    2016:  candidate rows=105,844  entry_industry rate=3.6809%
+    2017:  candidate rows=106,062  entry_industry rate=3.4244%
+    2018:  candidate rows=106,311  entry_industry rate=3.9093%
+
+Candidate-entry set panel: 2,608,484 rows
+  entry_industry rate: 4.5253%
+    mean density | entry_industry=1: 0.08575
+    mean density | entry_industry=0: 0.02862
+  entry_firm     rate: 0.0012%
+    mean density | entry_firm=1: 0.10969
+    mean density | entry_firm=0: 0.03120
+
+Density pre-standardised (÷ SD = 0.088767, pooled across all periods purely as a fixed unit) — β reads as Δ P(entry) per 1-SD increase in density
+
+============================================================
+Relatedness density → entry  (per classification period, industry + muni×year FE, SE clustered by muni)
+============================================================
+
+  -- SNI92 --  (within-FE density_std SD=0.262562, 6.8939% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.063629  SE=0.003137  t=20.281  p=1.878e-91
+      N=988,126  R²=0.00633  partial r=+0.0796
+      baseline rate=5.1334%  →  β = +124.0% of baseline  per 1-SD density
+    entry_firm     (new establishment, >5 workers)
+      coef=+0.000102  SE=0.000037  t=2.778  p=5.472e-03
+      N=988,126  R²=0.00003  partial r=+0.0052
+      baseline rate=0.0027%  →  β = +373.1% of baseline  per 1-SD density
+
+  -- SNI02 --  (within-FE density_std SD=0.204344, 4.1756% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.072736  SE=0.004954  t=14.684  p=8.200e-49
+      N=353,657  R²=0.00517  partial r=+0.0719
+      baseline rate=5.0965%  →  β = +142.7% of baseline  per 1-SD density
+    entry_firm     (new establishment, >5 workers)
+      coef=+0.000024  SE=0.000018  t=1.304  p=1.924e-01
+      N=353,657  R²=0.00000  partial r=+0.0021
+      baseline rate=0.0006%  →  β = +421.7% of baseline  per 1-SD density
+
+  -- SNI07 --  (within-FE density_std SD=0.249808, 6.2404% of raw variance retained)
+    entry_industry (jumps to significant local size)
+      coef=+0.048206  SE=0.002397  t=20.111  p=5.941e-90
+      N=1,266,701  R²=0.00424  partial r=+0.0651
+      baseline rate=3.8916%  →  β = +123.9% of baseline  per 1-SD density
+    entry_firm     (new establishment, >5 workers)
+      coef=+0.000003  SE=0.000002  t=1.384  p=1.663e-01
+      N=1,266,701  R²=0.00000  partial r=+0.0006
+      baseline rate=0.0002%  →  β = +186.6% of baseline  per 1-SD density
+
+============================================================
+Year-by-year coefficients  (density → entry_industry, entry_firm)
+============================================================
+  1990→1991:  entry_industry β=+0.05382 (p=3.23e-08)   entry_firm β=+0.00010 (p=3.33e-01)   N=89,109
+  1991→1992:  entry_industry β=+0.07158 (p=3.28e-84)   entry_firm β=+0.00042 (p=2.74e-02)   N=91,147
+  1992→1993:  entry_industry β=+0.07391 (p=1.88e-79)   entry_firm β=+0.00018 (p=1.67e-01)   N=91,768
+  1993→1994:  entry_industry β=+0.06042 (p=5.91e-15)   entry_firm β=+0.00003 (p=3.23e-01)   N=91,890
+  1994→1995:  entry_industry β=+0.07005 (p=4.31e-65)   entry_firm β=+0.00000 (p=nan)   N=90,488
+  1995→1996:  entry_industry β=+0.07178 (p=1.21e-70)   entry_firm β=+0.00000 (p=nan)   N=89,976
+  1996→1997:  entry_industry β=+0.07695 (p=3.28e-85)   entry_firm β=+0.00003 (p=3.17e-01)   N=89,269
+  1997→1998:  entry_industry β=+0.05277 (p=1.29e-12)   entry_firm β=+0.00000 (p=nan)   N=88,446
+  1998→1999:  entry_industry β=+0.06025 (p=2.42e-53)   entry_firm β=+0.00006 (p=2.55e-01)   N=88,615
+  1999→2000:  entry_industry β=+0.05561 (p=3.23e-53)   entry_firm β=-0.00003 (p=3.22e-01)   N=88,731
+  2000→2001:  entry_industry β=+0.05507 (p=1.17e-44)   entry_firm β=-0.00007 (p=4.55e-01)   N=88,687
+  2002→2003:  entry_industry β=+0.07220 (p=1.93e-40)   entry_firm β=+0.00000 (p=nan)   N=89,961
+  2003→2004:  entry_industry β=+0.08660 (p=4.78e-41)   entry_firm β=+0.00006 (p=3.17e-01)   N=89,210
+  2004→2005:  entry_industry β=+0.06067 (p=1.21e-30)   entry_firm β=+0.00003 (p=3.20e-01)   N=87,341
+  2005→2006:  entry_industry β=+0.06996 (p=1.17e-31)   entry_firm β=+0.00000 (p=nan)   N=87,145
+  2007→2008:  entry_industry β=+0.04849 (p=2.68e-48)   entry_firm β=+0.00000 (p=nan)   N=106,137
+  2008→2009:  entry_industry β=+0.05378 (p=9.42e-51)   entry_firm β=+0.00001 (p=3.27e-01)   N=105,878
+  2009→2010:  entry_industry β=+0.05178 (p=1.31e-47)   entry_firm β=+0.00000 (p=nan)   N=105,399
+  2010→2011:  entry_industry β=+0.05563 (p=1.62e-46)   entry_firm β=+0.00000 (p=nan)   N=105,227
+  2011→2012:  entry_industry β=+0.05477 (p=6.51e-53)   entry_firm β=+0.00002 (p=3.17e-01)   N=105,177
+  2012→2013:  entry_industry β=+0.05215 (p=2.12e-58)   entry_firm β=+0.00000 (p=nan)   N=105,077
+  2013→2014:  entry_industry β=+0.04398 (p=7.79e-48)   entry_firm β=+0.00000 (p=nan)   N=104,984
+  2014→2015:  entry_industry β=+0.04669 (p=4.48e-48)   entry_firm β=+0.00000 (p=nan)   N=105,197
+  2015→2016:  entry_industry β=+0.04256 (p=2.71e-44)   entry_firm β=+0.00000 (p=nan)   N=105,408
+  2016→2017:  entry_industry β=+0.04336 (p=1.64e-50)   entry_firm β=+0.00000 (p=nan)   N=105,844
+  2017→2018:  entry_industry β=+0.04421 (p=5.11e-54)   entry_firm β=+0.00000 (p=nan)   N=106,062
+  2018→2019:  entry_industry β=+0.04730 (p=9.62e-58)   entry_firm β=+0.00000 (p=nan)   N=106,311
+
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_log_entry.png
+  → /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/processed/downstream_outcomes/entry/shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_log_panel.parquet  (2,608,484 rows)
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/regional_entry/  (shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_log_year_coefs.csv, _summary.csv)  + /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/processed/downstream_outcomes/entry/  (shared_cosine_v15_textprior_pca_no_nace_trade_innovation_ew_log_panel.parquet)
+
+Done.
+=== 2/3 P04_exit.py  (log-ew baseline, --include-firm --stratify-firm-size) ===

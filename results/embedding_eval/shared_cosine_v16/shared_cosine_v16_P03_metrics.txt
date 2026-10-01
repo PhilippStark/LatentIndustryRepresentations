@@ -1,0 +1,133 @@
+
+════════════════════════════════════════════════════════════
+A. Hierarchy preservation (SNI07)
+════════════════════════════════════════════════════════════
+  Same 3d group (class siblings)          n=  865  mean sim=0.5291  ±0.3730
+  Same 2d division diff group             n= 3594  mean sim=0.3806  ±0.3448
+  Different section                       n= 5000  mean sim=0.1405  ±0.2287
+
+  Hierarchy monotone (3d > 2d > section): YES ✓
+  Tree-distance correlation (cosine distance ~ tree distance):  rho=0.3721  (p=0.00e+00, n=14459)
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_A_hierarchy_preservation.png
+
+════════════════════════════════════════════════════════════
+B. Cross-version retrieval (SNI02 → SNI07)
+════════════════════════════════════════════════════════════
+  SNI02 codes evaluated: 514
+  Mean Reciprocal Rank (MRR):  0.8126
+  Mean Average Precision (MAP): 0.7003  (scores against ALL true partners, not just the first hit — see v7 §4.1)
+  Recall@1  :                 0.7179
+  Recall@5  :                 0.9416
+  Recall@10 :                 0.9767
+  Recall@20 :                 0.9844
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_B_retrieval_metrics.png
+
+════════════════════════════════════════════════════════════
+B2. Cross-version retrieval (SNI92 → SNI02)
+════════════════════════════════════════════════════════════
+  SNI92 codes evaluated: 505
+  Mean Reciprocal Rank (MRR):  0.9333
+  Mean Average Precision (MAP): 0.9256
+  Recall@1  :                 0.8832
+  Recall@5  :                 0.9980
+  Recall@10 :                 0.9980
+  Recall@20 :                 0.9980
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_B2_retrieval_92_02.png
+
+════════════════════════════════════════════════════════════
+C. Case studies — splits across versions
+════════════════════════════════════════════════════════════
+
+  SNI02 1030: Extraction and agglomeration of peat for fertilization purposes
+  True SNI07 targets (4):
+    0892 [B] rank=   1  Extraction of peat
+    0990 [B] rank=   3  Support activities for other mining and quarrying
+    1920 [C] rank= 188  Manufacture of refined petroleum products
+    2015 [C] rank=   4  Manufacture of fertilisers and nitrogen compounds
+  Top-10 nearest SNI07 codes:
+    0892 [B] sim=0.7021  Extraction of peat ← TRUE
+    0891 [B] sim=0.6099  Mining of chemical and fertiliser minerals
+    0990 [B] sim=0.5578  Support activities for other mining and quarrying ← TRUE
+    2015 [C] sim=0.5167  Manufacture of fertilisers and nitrogen compounds ← TRUE
+    0710 [B] sim=0.4749  Mining of iron ores
+    2363 [C] sim=0.4594  Manufacture of ready-mixed concrete
+    0899 [B] sim=0.3901  Other mining and quarrying n.e.c.
+    0812 [B] sim=0.3749  Operation of gravel and sand pits; mining of clays and 
+    0129 [A] sim=0.3592  Growing of other perennial crops
+    2399 [C] sim=0.3490  Manufacture of stone and mineral wool products
+
+  SNI02 7487: Graphical design
+  True SNI07 targets (20):
+    4799 [G] rank=  45  Retail sale on commission
+    5811 [J] rank=   2  Book publishing
+    5812 [J] rank=  26  Publishing of directories and mailing lists
+    5821 [J] rank=   8  Publishing of computer games
+    5829 [J] rank=  23  Other software publishing
+    5913 [J] rank=  10  Motion picture, video and television programme distribution 
+    5920 [J] rank=   7  Sound recording and music publishing activities
+    6399 [J] rank=  12  Other information service activities n.e.c.
+    7022 [M] rank=  33  Business and other management consultancy activities
+    7410 [M] rank=  20  Industrial and fashion design
+    7490 [M] rank= 131  Other professional, scientific and technical activities n.e.
+    7740 [N] rank=  15  Leasing of intellectual property and similar products, excep
+    7990 [N] rank=  62  Other reservation service and related activities
+    8230 [N] rank=  11  Organisation of conventions and trade shows
+    8291 [N] rank=   4  Activities of collection agencies and credit bureaus
+    8299 [N] rank=  13  Other business support service activities n.e.c.
+    9002 [R] rank= 116  Support activities to performing arts
+    9003 [R] rank=  32  Artistic creation
+    9604 [S] rank=  34  Physical well-being activities
+    9609 [S] rank=  80  Other personal service activities n.e.c.
+  Top-10 nearest SNI07 codes:
+    7021 [M] sim=0.7458  Public relations and communication activities
+    5811 [J] sim=0.7199  Book publishing ← TRUE
+    7311 [M] sim=0.7122  Advertising agency activities
+    8291 [N] sim=0.7023  Activities of collection agencies and credit bureaus ← TRUE
+    7312 [M] sim=0.6990  Media representation
+    5814 [J] sim=0.6966  Publishing of journals and periodicals
+    5920 [J] sim=0.6932  Sound recording and music publishing activities ← TRUE
+    5821 [J] sim=0.6894  Publishing of computer games ← TRUE
+    5813 [J] sim=0.6847  Publishing of daily newspapers
+    5913 [J] sim=0.6830  Motion picture, video and television programme distribu ← TRUE
+
+  SNI02 3663: Other manufacturing n.e.c.
+  True SNI07 targets (12):
+    1399 [C] rank=   5  Manufacture of other textiles n.e.c.
+    1512 [C] rank=   3  Manufacture of luggage, handbags and the like, saddlery and 
+    1629 [C] rank=  32  Manufacture of wood fuels
+    1729 [C] rank=   1  Manufacture of other articles of paper and paperboard
+    2051 [C] rank=  18  Manufacture of explosives
+    2219 [C] rank=  16  Manufacture of other rubber products
+    2223 [C] rank=  10  Manufacture of builders’ ware of plastic
+    2229 [C] rank=   8  Manufacture of other plastic products
+    2599 [C] rank=  28  Manufacture of sinks, sanitary ware etc. of metal for constr
+    2899 [C] rank=  37  Manufacture of other special-purpose machinery n.e.c.
+    3092 [C] rank=  20  Manufacture of bicycles and invalid carriages
+    3299 [C] rank=  12  Other manufacturing n.e.c.
+  Top-10 nearest SNI07 codes:
+    1729 [C] sim=0.6822  Manufacture of other articles of paper and paperboard ← TRUE
+    1721 [C] sim=0.6725  Manufacture of corrugated paper and paperboard and corr
+    1512 [C] sim=0.6224  Manufacture of luggage, handbags and the like, saddlery ← TRUE
+    2221 [C] sim=0.5993  Manufacture of plastic plates, sheets, tubes and profil
+    1399 [C] sim=0.5895  Manufacture of other textiles n.e.c. ← TRUE
+    1722 [C] sim=0.5695  Manufacture of household and sanitary goods and of toil
+    2222 [C] sim=0.5694  Manufacture of plastic packing goods
+    2229 [C] sim=0.5584  Manufacture of other plastic products ← TRUE
+    1621 [C] sim=0.5540  Manufacture of veneer sheets and wood-based panels
+    2223 [C] sim=0.5528  Manufacture of builders’ ware of plastic ← TRUE
+
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_C_peat_neighbourhood.png
+
+════════════════════════════════════════════════════════════
+D. t-SNE visualisation
+════════════════════════════════════════════════════════════
+  Running t-SNE on 1619 codes …
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_tsne_by_version.png
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_tsne_all_by_section.png
+  → /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/results/interactive_plots/shared_cosine_v16_D_tsne_interactive.html
+
+  Aligned vs random cosine similarity distribution …
+  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_aligned_vs_random_similarity.png
+
+All outputs written to /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/
+Done.

@@ -1,0 +1,11 @@
+family,KL_raw,KL_trained,relative_KL_reduction,source_metric,source_metric_raw,source_metric_trained
+Labor (SNI07),4.4841,4.0219,0.1031,E_labor_rho_07,0.4261,0.5621
+Labor (SNI02),4.5554,4.8891,-0.0733,E_labor_rho_02,0.4247,0.6063
+Labor (SNI92),3.8835,3.5867,0.0764,E_labor_rho_92,0.4154,0.6155
+Ownership (SNI07),5.3207,1.9196,0.6392,E2_ownership_rho_07,0.4342,0.6936
+Ownership (SNI02),5.4879,2.3264,0.5761,E2_ownership_rho_02,0.4693,0.7483
+Ownership (SNI92),4.7645,2.3713,0.5023,E2_ownership_rho_92,0.4439,0.6926
+Input-output,3.7975,3.0718,0.1911,I_io_rho,0.1804,0.911
+Concordance 02→07,2.4617,2.1827,0.1133,B_MRR_02to07,0.9322,0.8126
+Concordance 92→02,0.3085,0.6391,-1.0716,B2_MRR_92to02,0.992,0.9333
+Hierarchy,,,,A_treedist_rho,0.6779,0.3721

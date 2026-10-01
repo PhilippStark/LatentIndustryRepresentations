@@ -1,0 +1,38 @@
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss
+/home/ph0245st/.local/lib/python3.12/site-packages/statsmodels/regression/linear_model.py:1782: RuntimeWarning: invalid value encountered in scalar divide
+  return 1 - self.ssr/self.centered_tss

@@ -1,0 +1,21 @@
+{
+  "01": "New through split-up",
+  "02": "New (other)",
+  "03": "New (no predecessor found; no employees were employed in the previous year)",
+  "05": "New through merger",
+  "06": "New through split-up (2004 methodology adjustment)",
+  "07": "New (other, 2004 methodology adjustment)",
+  "08": "New (no predecessor found, 2004 methodology adjustment)",
+  "09": "New through merger (2004 methodology adjustment)",
+  "10": "Closed through merger",
+  "11": "Surviving",
+  "12": "Surviving (matched under 2003 old methodology only)",
+  "13": "Surviving (matched under 2003 new methodology only)",
+  "20": "Closed (other)",
+  "30": "Closed (no successor found; no employees remained employed in the following year)",
+  "50": "Closed through split-up",
+  "60": "Closed through merger (2004 methodology adjustment)",
+  "70": "Closed (other, 2004 methodology adjustment)",
+  "80": "Closed (no successor found, 2004 methodology adjustment)",
+  "90": "Closed through split-up (2004 methodology adjustment)"
+}

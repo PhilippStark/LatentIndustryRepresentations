@@ -1,0 +1,20 @@
+{
+  "Unknown": "Unknown",
+  "A": "Agriculture, hunting and forestry",
+  "B": "Fishing",
+  "C": "Mining and quarrying",
+  "D": "Manufacturing",
+  "E": "Electricity, gas and water supply",
+  "F": "Construction",
+  "G": "Wholesale and retail trade; repair of motor vehicles, motorcycles and personal and household goods",
+  "H": "Hotels and restaurants",
+  "I": "Transport, storage and communication",
+  "J": "Financial intermediation",
+  "K": "Real estate, renting and business activities",
+  "L": "Public administration and defence; compulsory social security",
+  "M": "Education",
+  "N": "Health and social work",
+  "O": "Other community, social and personal service activities",
+  "P": "Activities of private households as employers and undifferentiated production activities of private households",
+  "Q": "Extra-territorial organizations and bodies"
+}
