@@ -242,14 +242,13 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# SLURM job output/error logs (job definitions live in jobs/slurm/, tracked)
-jobs/*.txt
+# SLURM job definitions and logs: kept locally / on LUNARC, never pushed
+jobs/
 results/**/*_with_innovation.parquet
 results/regional_innovation/innovation_prediction_oof_scores.csv
 
 results/regional_growth/multilayer_v1_map_slider.html
 archive/
-jobs/archive/
 outputs/
 tests/
 results/regional_growth/*.html
