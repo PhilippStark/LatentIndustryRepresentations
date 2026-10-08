@@ -1,0 +1,26 @@
+\begin{table}[htbp]
+\centering
+\small
+\caption{Regional density effects under alternative fixed-effects specifications. Each cell reports the coefficient (percentage points per standard deviation of density $D^{\mathrm{A,log}}$) from a linear probability model estimated per classification period, with 95\% confidence intervals in brackets. Fixed effects are absorbed exactly; standard errors are clustered by municipality and industry, and intervals use a $t$ distribution with $\min(G_{\text{municipality}}, G_{\text{industry}})-1$ degrees of freedom. Column 1 is the main specification.}
+\label{tab:fe_robustness}
+\begin{tabular}{llccc}
+\toprule
+ & & (1) & (2) & (3) \\
+Outcome & Period & Muni$\times$year + industry & Muni + year + industry & Muni$\times$industry + year \\
+\midrule
+\multirow{3}{*}{Entry} & SNI92 & $\mathbf{6.05}$ [4.48, 7.62] & $4.58$ [2.30, 6.85] & $2.51$ [0.86, 4.15] \\
+ & SNI02 & $\mathbf{6.16}$ [3.93, 8.40] & $6.12$ [3.89, 8.36] & $-2.76$ [-9.37, 3.85] \\
+ & SNI07 & $\mathbf{5.30}$ [3.53, 7.08] & $5.32$ [3.55, 7.09] & $6.51$ [3.56, 9.45] \\
+\addlinespace
+\multirow{3}{*}{Exit} & SNI92 & $\mathbf{-13.77}$ [-15.85, -11.69] & $-13.65$ [-15.69, -11.60] & $-3.68$ [-6.64, -0.73] \\
+ & SNI02 & $\mathbf{-8.91}$ [-10.44, -7.37] & $-8.97$ [-10.50, -7.43] & $-3.66$ [-8.79, 1.48] \\
+ & SNI07 & $\mathbf{-11.84}$ [-13.49, -10.18] & $-11.76$ [-13.41, -10.12] & $-8.91$ [-11.53, -6.29] \\
+\addlinespace
+\multirow{3}{*}{Start-up entry} & SNI92 & $\mathbf{1.05}$ [0.82, 1.29] & $0.87$ [0.59, 1.15] & $0.52$ [0.27, 0.77] \\
+ & SNI02 & $\mathbf{1.17}$ [0.54, 1.80] & $1.16$ [0.53, 1.79] & $-0.88$ [-2.92, 1.16] \\
+ & SNI07 & $\mathbf{1.72}$ [1.14, 2.30] & $1.73$ [1.14, 2.31] & $3.33$ [2.20, 4.45] \\
+\midrule
+\multicolumn{2}{l}{Observations (all models)} & 6\,955\,867 & 6\,955\,867 & 6\,905\,186 \\
+\bottomrule
+\end{tabular}
+\end{table}

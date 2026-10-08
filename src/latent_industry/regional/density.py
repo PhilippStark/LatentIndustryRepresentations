@@ -1,50 +1,31 @@
 """
-Embedding-based regional relatedness density — shared by every
-scripts/regional/P04_*.py evaluator (growth, entry, exit, startup_entry, ...).
+Embedding-based regional relatedness density, shared by the regional
+scripts (scripts/regional/P04_*.py, P05, R01).
 
-Centralised here (rather than defined once per script, as it used to be)
-so the *definition* of density doesn't live-and-die with whichever P04
-script happens to still exist — every evaluator imports the same kernels
-from one place.
-
-A "density" of industry j in municipality m at year t is always some
-weighted combination of the region's existing employment mix
-M_t[m, :] against a similarity kernel K[i, j] = f(cos(z_i, z_j)):
+The density of industry j in municipality m in year t combines the
+municipality's employment mix M_t[m, :] with a similarity kernel
+K[i, j] = f(cos(z_i, z_j)):
 
     density[m, j] = (M_t @ K)[m, j] / normaliser[m, j]
 
-The kernels below differ only in K (and, for the employment-weighted
-density, the normaliser):
+Kernels
+-------
+  softmax          K[i,j] = softmax_i(τ·cos(z_i,z_j)), self excluded; high τ
+                   concentrates weight on the closest industries
+  inverse softmax  K[i,j] = softmax_i(−τ·cos(z_i,z_j)), self excluded; weight
+                   on the most distant industries
+  kNN              0/1 for the k nearest neighbours per column, column-normalised
+  raw / relu       plain (or rectified) cosine, column-normalised
 
-  softmax kernel   K[i,j] = softmax_i(τ·cos(z_i,z_j)), self excluded.
-                   High τ concentrates weight on the closest neighbours
-                   (related variety / Marshall externalities).
-  inverse softmax  K[i,j] = softmax_i(−τ·cos(z_i,z_j)), self excluded.
-                   Concentrates weight on the most distant industries
-                   (unrelated variety / Jacobs externalities).
-  kNN              binary 0/1 for the k nearest neighbours per column,
-                   column-normalised. Hard-threshold robustness check.
-  raw / relu       plain (or rectified) cosine, column-normalised.
+Employment-weighted densities (leave-one-out, no temperature)
+-------------------------------------------------------------
+  arithmetic:  D[m,j] = Σ_{i≠j} M_t[m,i]·cos(z_i,z_j) / Σ_{i≠j} M_t[m,i]
+  geometric:   D[m,j] = exp( Σ_{i≠j} M_t[m,i]·log(s_ij) / Σ_{i≠j} M_t[m,i] ),
+               s_ij = (cos(z_i,z_j) + 1) / 2, so one dissimilar industry with
+               substantial employment lowers the density strongly
 
-  employment-weighted (no temperature, leave-one-out):
-    D[m,j] = Σ_{i≠j} M_t[m,i]·cos(z_i,z_j) / Σ_{i≠j} M_t[m,i]
-  A plain employment-weighted mean cosine similarity to industry j's
-  local employment mix — the standard relatedness-density formula, as
-  opposed to the softmax kernels' concentration on nearby neighbours.
-
-  geometric-mean employment-weighted (no temperature, leave-one-out):
-    D[m,j] = exp( Σ_{i≠j} M_t[m,i]·log(s_ij) / Σ_{i≠j} M_t[m,i] ),
-    s_ij = (cos(z_i,z_j)+1)/2 rescaled into (0,1] so the log is defined.
-  Same leave-one-out weighting as the arithmetic version above, but a
-  weighted GEOMETRIC mean instead: any single dissimilar neighbour with
-  material employment weight pulls the density down hard, rather than
-  being averaged away — a stricter reading of "close to the whole local
-  mix" than the arithmetic employment-weighted density.
-
-  Either employment-weighted density can also be computed with
-  log(1+employment) in place of raw employment as the weight matrix
-  M_t (tempers the influence of a handful of very large incumbent
-  industries) — pass np.log1p(M_t) as M_t to either function below.
+Passing np.log1p(M_t) as M_t gives the log-employment-weighted versions; the
+arithmetic one, D^{A,log}, is the paper's main specification.
 """
 
 from pathlib import Path
@@ -59,9 +40,8 @@ def load_sni_embeddings(
     verbose: bool = True,
 ) -> dict[str, tuple[np.ndarray, list[str]]]:
     """
-    Load {label: (vecs, codes)} for a run's SNI-vintage embeddings, e.g.
-    embeddings_sni07.npz / embeddings_sni02.npz / embeddings_sni92.npz
-    under embed_base/run_name/, as written by train_sentence_embedding.py.
+    Load {label: (vecs, codes)} from embed_base/run_name/embeddings_{label}.npz
+    (e.g. sni07, sni02, sni92), as written by train_shared_cosine_embedding.py.
     """
     embed_dir = embed_base / run_name
     if verbose:
@@ -71,7 +51,7 @@ def load_sni_embeddings(
     for label in labels:
         path = embed_dir / f"embeddings_{label}.npz"
         if not path.exists():
-            raise FileNotFoundError(f"{path} — run train_sentence_embedding.py first.")
+            raise FileNotFoundError(f"{path} — run train_shared_cosine_embedding.py first.")
         d = np.load(path, allow_pickle=True)
         vecs = d["embeddings"].astype(np.float32)
         codes = list(d["codes"].astype(str))

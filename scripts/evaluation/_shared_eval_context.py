@@ -1,66 +1,28 @@
 """
 _shared_eval_context.py
-========================
-Shared setup, argument parsing, and pure-function metric helpers for
-scripts/evaluation/P02_shared_geometry_reconstruction.py (Result 2: does
-one shared geometry reconstruct every source) and
-scripts/evaluation/P03_emergent_structure.py (Result 3: emergent
-structure) — the two files evaluate_embeddings.py (2285 lines) was split
-into 2026-07-30 to match docs/Embedding validation.md's 6-part paper
-results structure.
+=======================
+Shared setup, argument parsing and metric helpers for
+P02_shared_geometry_reconstruction.py (Result 2) and
+P03_emergent_structure.py (Result 3). Imported by those scripts; not run
+directly.
 
-NOT a standalone entrypoint (leading underscore, no `if __name__ ==
-"__main__"`) — import from it, don't run it directly.
+Provides
+--------
+- add_common_args: --run-name, --model-dir, --baseline (and --graph-name for P02).
+- build_base_context: SNI descriptions and section maps, the run's 4-digit
+  embeddings for SNI92/SNI02/SNI07 (read from
+  EMBEDDING_DIR/{run}/embeddings_*.npz) and the run's training_provenance.json.
+- load_baseline_and_hub_embeddings (P02 only): the untrained text-encoder
+  baseline (sentence-transformers/all-MiniLM-L6-v2) and the hierarchy-hub
+  embeddings.
+- load_crosswalks: the SCB correspondence tables SNI92→SNI02→SNI07.
+- Metric helpers (hierarchy-level similarity pairs, retrieval, average
+  precision) and compute_key_metrics, which recomputes every scalar metric
+  for any embedding set so that baseline and trained embeddings are scored
+  identically.
 
-P02 owns: E, E2, E3, F, H, I, I2, J, K narrative sections + G (multi-signal
-summary) + K2 (consolidated source table/dot plot).
-P03 owns: A, B, B2, C, D, D2 narrative sections + the aligned-vs-random
-cosine-similarity histogram.
-
-Both need: SNI 4d code/description loading, the fine-tuned model, the 4d
-atom embeddings (vecs_07/02/92), the hierarchy-ordinal pair builder
-(exhaustive_pairs_by_level / levels), and the cross-version crosswalks
-(mapping_02_07/true_targets, mapping_92_02/true_targets_92) — P03's own
-A/B/B2 narrative uses these directly, and P02's compute_key_metrics (used
-to seed section G's "trained" column — see that file's own comment for
-why) independently recomputes A/B/B2's scalars from any embedding set
-passed to it, using the same functions.
-
-Baseline embeddings (bl_vecs_*) and NACE-hierarchy-hub embeddings
-(vecs_3d/2d/sec + bl_vecs_3d/2d/sec) are loaded by
-`load_baseline_and_hub_embeddings()` rather than unconditionally here —
-verified 2026-07-30 that P03's sections (the former lines 357-1123 of
-evaluate_embeddings.py: A/B/B2/C/D/D2 + aligned-vs-random) never reference
-bl_vecs_*/vecs_3d/2d/sec/idx_3d/2d/sec/_bl_st at all, so P03 calls
-`build_base_context()` alone and skips an extra baseline
-SentenceTransformer encode pass (plus three hierarchy-hub encode passes)
-it would otherwise never use.
-
-A note on randomness and the split: exhaustive_pairs_by_level's
-"diff_section"/"same_section" levels draw a bounded random subsample (up
-to max_n=5000) via an explicit `rng` parameter (not a hidden shared
-module-level object, unlike the original script). In the original
-monolithic script, a single `random.Random(42)` was shared and
-sequentially advanced across the whole run, so section G's
-`compute_key_metrics(bl_vecs_07, ...)` call for `baseline_summary`
-happened to draw from whatever position section A and D's own draws had
-already left the RNG at — an accidental coupling between unrelated
-sections, not a deliberate property of the "pure function of its inputs"
-`compute_key_metrics` is documented to be. Now that A (P03) and
-compute_key_metrics (P02) run in separate processes, that accidental
-cross-section coupling can no longer be reproduced (nor should it be —
-it was never a meaningful dependency). Each call site below is given its
-own freshly-seeded `random.Random(SEED)`, so `A_sim_same_3d`/`A_sim_same_2d`
-(exhaustive enumerations, well under the 5000 cap for the current SNI07
-atom set — never RNG-dependent at all) match the original run exactly,
-and `A_sim_diff_section`/`A_treedist_rho`/`A_hierarchy_monotone` match
-exactly for the TRAINED column (P02's first and only fresh-RNG use there
-reproduces P03/original's own first-and-only fresh-RNG A section
-bit-for-bit) — but the BASELINE row's diff_section-derived values may
-differ in the last decimal place or two from the original run's baseline
-row, since original's baseline call inherited RNG state from sections
-that no longer run in the same process. See P02's own module docstring
-for the verification result.
+Sampled metrics take an explicit random.Random(SEED) so results do not
+depend on the order in which sections run.
 """
 
 import json
@@ -86,7 +48,8 @@ embed_dir    = EMBEDDING_DIR
 BASE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 SEED       = 42
 
-DEFAULT_RUN_NAME  = "multilayer_v1"
+DEFAULT_RUN_NAME  = "shared_cosine_v16"
+DEFAULT_GRAPH_NAME = "layers_v1"
 DEFAULT_MODEL_DIR = str(EMBEDDING_DIR / DEFAULT_RUN_NAME / "model_final")
 DEFAULT_BASELINE  = False
 
@@ -121,31 +84,20 @@ def _prefix_groups(codes: list[str], n: int) -> dict[str, list[str]]:
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
 def add_common_args(parser, *, graph_name: bool = True):
-    """--baseline / --model-dir / --run-name (+ --graph-name unless
-    graph_name=False), with the exact defaults/help text
-    evaluate_embeddings.py used pre-split. P02 needs --graph-name (H/I/J/K
-    read graph_edges_{name}/graph_nodes_{name}/diffusion_matrix_{name});
-    P03's sections (A/B/B2/C/D/D2) never reference args.graph_name
-    (verified 2026-07-30 — no such reference in the former lines
-    357-1123), so P03's own parser should call this with graph_name=False
-    rather than carry a dead flag."""
+    """
+    Add --baseline, --model-dir, --run-name and, unless graph_name=False,
+    --graph-name (needed by P02 only).
+    """
     parser.add_argument("--baseline", action="store_true", default=DEFAULT_BASELINE,
                         help="Use raw BASE_MODEL instead of the fine-tuned model.")
     parser.add_argument("--model-dir", default=DEFAULT_MODEL_DIR,
                         help="Path to model_final directory.")
     parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
-                        help="Label for output files, e.g. 'multilayer_v1' or 'multilayer_v1_768d'.")
+                        help="Embedding run under EMBEDDING_DIR; also the label of the output folder.")
     if graph_name:
-        parser.add_argument("--graph-name", default=DEFAULT_RUN_NAME,
-                            help="--name used when running build_multilayer_diffusion.py — selects which "
-                                 "graph_edges_{name}.parquet / graph_nodes_{name}.parquet / "
-                                 "diffusion_matrix_{name}.npz to read for sections H/I/J/K. Defaults to "
-                                 "--run-name's value so a no-args run always evaluates a model against "
-                                 "its OWN graph — pass this explicitly if you're evaluating a run (e.g. "
-                                 "a --base-model capacity comparison) whose graph-name differs from its "
-                                 "run-name. 'multilayer_v1' is the current blessed graph/target; "
-                                 "'routing'/'default' are retired pipelines kept only for historical "
-                                 "comparison — see TODO.md §2/§5 and docs/conceptual_audit.md.")
+        parser.add_argument("--graph-name", default=DEFAULT_GRAPH_NAME,
+                            help="Graph --name (build_layer_transition_matrices.py) whose "
+                                 "graph_edges/graph_nodes files sections H/I/J/K read.")
     return parser
 
 
@@ -167,13 +119,8 @@ def _load_codes(filename: str, drop_key: str) -> dict[str, str]:
 
 # ── Load or compute embeddings ─────────────────────────────────────────────────
 
-# train_sentence_embedding.py actually saves the 4d targets under the plain
-# "sni07"/"sni02"/"sni92" names (embed_and_save's label, not this file's
-# lookup label) — so a straight `embeddings_{label}.npz` lookup for
-# "sni07_4d" never hits that cache. Map each label to its legacy alias here
-# once, instead of assuming a single naming convention every embedding
-# producer must match — any regime's export (see e.g.
-# training/operator_embedding.py) can use either name and still be found.
+# Exported 4-digit embeddings are named embeddings_sni07.npz etc.
+# (training/operator_embedding.export_embeddings); map the lookup labels to them.
 _LABEL_ALIASES = {"sni07_4d": "sni07", "sni02_4d": "sni02", "sni92_4d": "sni92"}
 
 
@@ -221,16 +168,9 @@ def load_model(args):
             return SentenceTransformer(BASE_MODEL)
 
 
-# v7 §4.4: once operator_embedding.export_embeddings exports hub rows as the
-# AGGREGATE of their 4d descendants (v7 §1.2) rather than raw free
-# parameters, load_or_encode above already prefers that cached
-# embeddings_sni07_{3d,2d,section}.npz over live text-encoding — no loading-
-# path change needed. What DOES need to change is the metric name: a hub
-# vector read from that cache means "centroid of a division's codes", not
-# "the model's encoding of the division description" (what every other
-# regime's H_nace_rho_3d/2d/section has always meant) — comparing the two
-# under one name would silently compare different things across the change.
-# Suffix only the labels that actually came from the aggregation cache.
+# Hub embeddings read from the cached embeddings_sni07_{3d,2d,section}.npz are
+# aggregates of their 4-digit descendants, not encodings of the hub
+# descriptions; metrics computed from them get a distinct label suffix.
 _HUB_LABEL_BY_SUFFIX = {"3d": "sni07_3d", "2d": "sni07_2d", "section": "sni07_section"}
 
 
@@ -244,11 +184,7 @@ def build_base_context(args) -> SimpleNamespace:
     ctx = SimpleNamespace()
     ctx.args = args
 
-    # One subfolder per run (2026-07-29) — results/embedding_eval/ had grown to
-    # 100+ flat files across runs, since every run writes ~17 outputs and none
-    # of the older ones get cleaned up. Filenames keep their {run_name}_ prefix
-    # for anything (e.g. build_paper_table.py) that still greps/copies a single
-    # file out of context.
+    # One output folder per run; filenames keep their {run_name}_ prefix.
     ctx.eval_dir = results_dir / "embedding_eval" / args.run_name
     ctx.eval_dir.mkdir(parents=True, exist_ok=True)
 
@@ -266,13 +202,9 @@ def build_base_context(args) -> SimpleNamespace:
     else:
         ctx.eff_embed_dir = embed_dir
 
-    # v7 §4.6: J2_target_fidelity scores fidelity to the FUSED multilayer_v1
-    # diffusion target — meaningless (reads as a regression, isn't one) for a
-    # regime that never trains on it. train_shared_cosine_embedding.py writes
-    # its own regime into training_provenance.json; use that to skip J2 rather
-    # than deleting it outright (legacy multilayer_v1/baseline runs, which never
-    # write this file or write a different regime, keep exactly today's
-    # behaviour).
+    # The training regime and family weights come from training_provenance.json
+    # (written by train_shared_cosine_embedding.py). The regime decides whether
+    # the fused-target fidelity checks (J2, K_fused) apply.
     _provenance_path = ctx.eff_embed_dir / "training_provenance.json"
     ctx.training_regime = None
     ctx.family_weights: dict[str, float] = {}
@@ -437,12 +369,12 @@ Ks = [1, 5, 10, 20]
 
 
 def average_precision(ranked_codes: list[str], true_targets_set: set[str]) -> float:
-    """v7 §4.1: MRR only asks whether *some* correct partner ranks first —
-    the wrong question for a many-to-many crosswalk (a model that perfectly
-    satisfies one partner per code and abandons the rest scores MRR=1.0).
-    Standard average precision over the FULL ranked list against every true
-    partner: precision at each rank a true partner is found, averaged over
-    all true partners (0.0 if none are ever found)."""
+    """
+    Average precision of a ranked list against all true partners (precision at
+    the rank of each true partner, averaged over partners; 0.0 if none is
+    found). Unlike MRR, this rewards retrieving every partner of a
+    many-to-many correspondence, not just the first.
+    """
     if not true_targets_set:
         return 0.0
     hits = 0
@@ -536,13 +468,12 @@ def io_consistency_metric(ctx: SimpleNamespace, v2d: np.ndarray, io_df: pd.DataF
 
 
 def aggregate_up_io_metric(v07: np.ndarray, codes07: list[str], io_df: pd.DataFrame) -> dict:
-    """v7 §4.3: S̄_ab = mean_{i in a, j in b} cos(z_i, z_j), computed directly
-    over 4d-SNI07 codes grouped by 2d division — a genuinely different
-    number from I_io_rho (mean-of-pairwise-cosines vs. the cosine of the
-    hub's own normalised mean), not a redundant recomputation. Per v7 §1.2
-    (hub rows ARE the flat mean of their 4d descendants), the two should now
-    converge; a persistent gap between them is the direct measure of
-    hub/4d decoupling the todo calls out."""
+    """
+    Division-level similarity S̄_ab = mean over i in a, j in b of cos(z_i, z_j),
+    computed from the 4-digit SNI07 embeddings grouped by 2-digit division, and
+    its Spearman rho against IO relatedness. Complements I_io_rho, which uses
+    the hub (division) embeddings directly.
+    """
     div_groups = _prefix_groups(codes07, 2)
     idx07 = {c: i for i, c in enumerate(codes07)}
     gt, sim = [], []
@@ -580,21 +511,19 @@ def _align_to_diffusion_matrix(
     return dm_vecs, dm_valid
 
 
-# v7 §4.6: J2_target_fidelity/K_fused_target_KL score fidelity to the FUSED
-# multilayer_v1 diffusion target — meaningless (reads as a regression,
-# isn't one) for a regime that never trains on it.
+# J2_target_fidelity / K_fused_target_KL measure fidelity to a single fused
+# diffusion target; they do not apply to regimes trained on separate
+# per-view targets.
 _SKIP_J2_REGIMES = {"shared_cosine_expanded"}
 
 
 def is_family_excluded(ctx: SimpleNamespace, family: str) -> bool:
-    """True if `family`'s training weight was set to exactly 0.0 in this
-    run's training_provenance.json (ctx.family_weights, from
-    build_base_context). Used to skip/annotate evaluation sections for a
-    source deliberately excluded from training, instead of reporting a
-    held-out-looking correlation/KL as if it were a normal trained-family
-    result. False (never excluded) for baseline runs, legacy runs without a
-    training_provenance.json, or any family not in family_weights at all —
-    only an explicit exact-zero weight counts."""
+    """
+    True if `family` has a training weight of exactly 0.0 in the run's
+    training_provenance.json. Used to mark evaluation results for families
+    that were not part of the training objective. False for runs without a
+    provenance file and for families not listed in it.
+    """
     return ctx.family_weights.get(family) == 0.0
 
 
@@ -702,11 +631,12 @@ def _row_kl_concordance(
     idx_src: dict, vecs_src: np.ndarray, idx_tgt: dict, vecs_tgt: np.ndarray,
     true_targets_map: dict[str, set], tau: float,
 ) -> dict:
-    """Cross-version concordance KL: P^(concordance)_i is uniform over i's
-    true mapped targets (equal-weighted multi-positive, per plan §3.1's
-    'concordance' row), Q_i is cosine-softmax from the source code to every
-    target-version code (no diagonal exclusion — src/tgt are different
-    versions, so there's no self-similarity to mask)."""
+    """
+    Cross-version concordance KL: P_i is uniform over the true correspondence
+    targets of source code i, Q_i is the cosine-softmax from i to every code of
+    the target version (no diagonal to exclude, as source and target are
+    different versions).
+    """
     kls = []
     for src_code, targets in true_targets_map.items():
         if src_code not in idx_src:
@@ -784,8 +714,7 @@ def kl_source_metrics(
     if res:
         out["K_concordance_KL_92to02"] = round(res["KL"], 4)
 
-    # v7 §4.6: same regime guard as J2_target_fidelity_rho — KL-to-the-fused-
-    # target is equally meaningless for a regime that never trains on it.
+    # Same regime guard as J2_target_fidelity_rho.
     if ctx.diffusion_path.exists() and ctx.training_regime not in _SKIP_J2_REGIMES:
         dm_vecs, dm_valid = _align_to_diffusion_matrix(ctx, v07, v02, v92, ctx.dm_codes, ctx.dm_versions)
         S_pos = np.clip(ctx.S, 0.0, None).astype(np.float64)

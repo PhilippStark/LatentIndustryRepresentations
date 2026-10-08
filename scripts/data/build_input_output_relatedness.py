@@ -1,92 +1,39 @@
 """
-build_input_output_relatedness.py — Input-output relatedness between SNI 2-digit
-divisions, kept SEPARATE per SNI classification vintage (2026-07-29 rewrite).
+build_input_output_relatedness.py
+=================================
+Input–output (IO) relatedness between 2-digit industry divisions, built
+separately for each classification vintage from public IO tables.
 
-Blends real, publicly available Input-Output tables to build a symmetric
-flow-strength relatedness measure at the 2-digit division level — the
-granularity every public symmetric IO table caps out at (they aggregate
-several divisions into single product/industry rows in various places; even
-the most detailed one found, Eurostat's, still merges e.g. mining 05-09 into
-one row).
+Sources (cached under <LATENT_DATA_ROOT>/raw/io/)
+-------------------------------------------------
+  SCB symmetric IO table, 2008–2016 (domestic intermediate use, product ×
+      product, NACE Rev. 2 groupings). Vintage: SNI07.
+  Eurostat naio_10_cp1700, Sweden, domestic flows, 2010–2019. Vintage: SNI07.
+  WIOD 2013 release, Sweden, 1995/2000/2005 (NACE Rev. 1.1 industries).
+      Vintage: SNI02.
 
-Sources
--------
-  SCB (Statistics Sweden) Symmetric Input-Output Table, 2008-2016
-    Domestic intermediate-use matrix, product x product, already coded in
-    NACE Rev.2-compatible groupings (A01, B, C10T12, G45-47, L68A/L68B, ...).
-    Native vintage: SNI07 (NACE Rev.2). https://www.scb.se/.../input-output-tables-2008-2016/
-    -> <LUNARC_DATA_ROOT>/raw/io/nrio_siot.xlsx (cached)
+Each source's flows are expanded from its own aggregated rows to 2-digit
+divisions and kept in its native vintage; no crosswalk is applied across
+classification versions. There is no IO source for SNI92.
 
-  Eurostat naio_10_cp1700 ("Symmetric input-output table at basic prices,
-  product by product"), filtered to geo=SE, stk_flow=DOM, years 2010-2019.
-  Same A64-ish breakdown as SCB but different aggregation seams in places
-  (e.g. splits G45/G46/G47 where SCB groups G45-47). Native vintage: SNI07.
-    -> <LUNARC_DATA_ROOT>/raw/io/eurostat_naio_10_cp1700_SE.csv (cached filtered
-       extract; the full bulk file is ~173MB decompressed and is never kept)
+Relatedness
+-----------
+Per source, flows are summed over its years and converted to a symmetric
+flow-strength measure (latent_industry.common.flow_metrics.symmetric_flow_phi):
 
-  WIOD 2013 release, pre-2008 years only (1995, 2000, 2005) to extend
-  coverage back toward 1990 (this project's individual-level data starts
-  in 1990; nothing else here reaches before 2008). WIOD's industry codes
-  are NACE Rev.1.1-style (e.g. "AtB", "15t16") — the same vintage SNI2002
-  uses in Sweden. Native vintage: SNI02.
-    -> <LUNARC_DATA_ROOT>/raw/io/wiod2013_SE_<year>.csv (cached filtered extracts;
-       the 919MB multi-country zip is downloaded once to a temp path and
-       discarded after extracting the needed year sheets)
+  phi(i,j) = (f(i→j) + f(j→i)) / (out(i) + in(j) + out(j) + in(i))
 
-Version handling (2026-07-29, was: crosswalk everything to SNI07)
--------------------------------------------------------------------
-Previously WIOD's SNI02-vintage flows were carried forward to SNI07 via
-mapping_02_07.csv before computing relatedness, so `io_relatedness.parquet`
-was a single table blending three sources across two different code systems
-and a ~25-year span (1995-2019) as if it meant one thing. That's exactly the
-"other conceptual problem" flagged in docs/conceptual_audit.md's
-Input-output relatedness section:
-*"Summing all available years gives sources with different windows different
-temporal meanings."* `labor`'s own build script already gets this right —
-worker-flow relatedness is computed strictly within each SNI coding period,
-never mixed across a reclassification. IO now follows the same rule:
+For SNI07 the SCB and Eurostat measures are averaged over the sources
+available for a pair.
 
-  - WIOD (1995/2000/2005) stays in its OWN native SNI02 divisions and
-    produces `io_relatedness_SNI02.parquet`. No forward crosswalk.
-  - SCB + Eurostat (2008-2019) stay in SNI07 divisions and produce
-    `io_relatedness_SNI07.parquet`, blended exactly as before.
-  - There is currently no IO source for SNI92 (WIOD's earliest year, 1995,
-    is already NACE Rev.1.1/SNI02-vintage by classification, regardless of
-    calendar year) — an honest gap, not silently papered over.
+Outputs (<LATENT_DATA_ROOT>/processed/)
+---------------------------------------
+  io_relatedness_SNI07.parquet   nace2d_from, nace2d_to, sim, phi_scb, phi_eurostat, n_sources
+  io_relatedness_SNI02.parquet   nace2d_from, nace2d_to, sim, phi_wiod, n_sources
+  io_flows_by_year.parquet       source, version, year, nace2d_from, nace2d_to, value
 
-Every source/year's flows are ALSO kept disaggregated by year (not summed
-away first) and written to `io_flows_by_year.parquet` before being pooled
-into the two version-level tables above — so a future time-interval /
-temporal-embedding pass can slice by year without re-deriving the
-division-level expansion from the raw source files again.
-
-Relatedness formula
---------------------
-Reuses latent_industry.common.flow_metrics.symmetric_flow_phi — the same
-symmetric flow-strength formula already used for labor relatedness in
-build_labor_relatedness.py:
-
-  phi(i,j) = (f(i->j) + f(j->i)) / (out(i) + in(j) + out(j) + in(i))
-
-computed independently per source (after summing each source's flows across
-its included years, within its own native version), then blended via the
-mean of whichever sources have data for a given pair (only SCB/Eurostat ever
-overlap on the same version; WIOD never blends with anything since it's the
-sole SNI02 source).
-
-Output
-------
-  <LUNARC_DATA_ROOT>/processed/io_flows_by_year.parquet
-    columns: source, version, year, nace2d_from, nace2d_to [str, zero-padded],
-             value [float] — division-level, NOT yet summed across years.
-
-  <LUNARC_DATA_ROOT>/processed/io_relatedness_SNI07.parquet
-    columns: nace2d_from, nace2d_to [str, zero-padded], sim [float],
-             phi_scb, phi_eurostat [float, NaN if source absent], n_sources [int, 1-2]
-
-  <LUNARC_DATA_ROOT>/processed/io_relatedness_SNI02.parquet
-    columns: nace2d_from, nace2d_to [str, zero-padded], sim [float],
-             phi_wiod [float], n_sources [int, always 1]
+In the main run (shared_cosine_v16) these tables feed the `io` view of the
+`layers_v1` graph (scripts/graph/build_layer_transition_matrices.py).
 
 Usage
 -----
@@ -168,7 +115,7 @@ WIOD_SHEET_NAMES = {year: f"WIOT_{year}" for year in WIOD_YEAR_FILES}
 WIOD_CODES_PATH = io_dir / "wiod_industry_codes.csv"
 
 # Official Eurostat classification metadata behind the prd_use/prd_ava codes — the
-# ground truth used to validate expand_code()'s output (see docs/extract_IO.md §14).
+# ground truth used to validate expand_code()'s output.
 # Cached here rather than re-fetched each run, and kept as a citable artifact.
 EUROSTAT_CODELIST_URL = "https://ec.europa.eu/eurostat/api/dissemination/sdmx/2.1/codelist/ESTAT/PRD_AVA?format=TSV"
 EUROSTAT_CODELIST_PATH = io_dir / "eurostat_prd_codelist.csv"
@@ -184,8 +131,10 @@ def _download(url: str, dest: Path) -> None:
 
 
 def load_eurostat_codelist() -> pd.DataFrame:
-    """Official Eurostat code -> description list for the prd_use/prd_ava dimensions.
-    Ground truth for validating expand_code()'s output — see docs/extract_IO.md §14."""
+    """
+    Official Eurostat code → description list for the prd_use/prd_ava dimensions,
+    used to validate expand_code()'s output.
+    """
     if not EUROSTAT_CODELIST_PATH.exists():
         resp = requests.get(EUROSTAT_CODELIST_URL, timeout=60)
         resp.raise_for_status()
@@ -232,12 +181,14 @@ def expand_code(code, section_map_inv: dict[str, list[str]]) -> list[str]:
 
 
 def _allocate_shares(divisions: list[str]) -> list[tuple[str, float]]:
-    """Turn a list of covered divisions into (division, share) pairs summing to 1.
-    Equal-share allocation — an uncertainty-marked fallback, not a measured
-    employment/output split (no such data is wired into this builder; see
-    docs/conceptual_audit.md's Input-output relatedness section). This is what makes the broadcast below
-    conservation-exact: an aggregate cell's value is split across its m*n
-    covered division pairs instead of copied to each of them."""
+    """
+    Turn a list of covered divisions into (division, share) pairs summing to 1.
+
+    Shares are equal across the covered divisions (no employment or output
+    split is available at this level). An aggregate cell's value is therefore
+    split across its covered division pairs rather than copied to each of them,
+    so total flow is conserved.
+    """
     n = len(divisions)
     if n == 0:
         return []
@@ -269,10 +220,7 @@ def broadcast_to_divisions(flows: pd.DataFrame, section_map_inv: dict[str, list[
 
 
 def _check_conservation(label: str, raw_total: float, expanded_total: float) -> None:
-    """Print a conservation ratio (expanded/raw) — should be ~1.0 after the
-    equal-share allocation fix; a large deviation would indicate a bug in
-    _allocate_shares or a caller bypassing it (docs/conceptual_audit.md's
-    Input-output relatedness section)."""
+    """Print the conservation ratio (expanded / raw flow total); ~1.0 is expected."""
     ratio = expanded_total / raw_total if raw_total else float("nan")
     print(f"  IO conservation check ({label}): raw={raw_total:.2f}  "
           f"expanded={expanded_total:.2f}  ratio={ratio:.4f}")
@@ -280,14 +228,13 @@ def _check_conservation(label: str, raw_total: float, expanded_total: float) -> 
 
 def source_phi_by_year(flows: pd.DataFrame, section_map_inv: dict[str, list[str]],
                         label: str, source_name: str, version: str) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Expand a source's (already long-format, per-year) flows to 2-digit
-    divisions WITHOUT summing years away first, returning:
-      (a) the year-tagged tidy division-level table (source, version, year,
-          nace2d_from, nace2d_to, value) — for `io_flows_by_year.parquet`;
-      (b) that source's symmetric_flow_phi, computed on the years-pooled total
-          (phi needs one flow matrix, not one per year; pooling is still
-          appropriate WITHIN a single classification vintage, unlike pooling
-          ACROSS vintages the old version did)."""
+    """
+    Expand a source's per-year flows to 2-digit divisions and return:
+      (a) the year-tagged division-level table (source, version, year,
+          nace2d_from, nace2d_to, value) for io_flows_by_year.parquet;
+      (b) the source's symmetric_flow_phi, computed on the flows pooled over
+          its years (all within one classification vintage).
+    """
     expanded = broadcast_to_divisions(flows, section_map_inv, extra_cols=("year",))
     pooled = expanded.groupby(["div_from", "div_to"], as_index=False)["value"].sum()
     _check_conservation(label, flows["value"].sum(), expanded["value"].sum())
@@ -423,9 +370,10 @@ def build_code_reference(
     sni07_section_inv: dict[str, list[str]],
     sni02_section_inv: dict[str, list[str]],
 ) -> pd.DataFrame:
-    """Audit table: every raw code actually used by each source, the description
-    backing it, and what expand_code() resolves it to. Persisted so the mapping
-    can be checked without re-deriving it — see docs/extract_IO.md §14."""
+    """
+    Audit table: every raw code used by each source, its description, and the
+    divisions expand_code() resolves it to. Written to raw/io/code_reference.csv.
+    """
     eurostat_desc = load_eurostat_codelist().set_index("code")["description"].to_dict()
     wiod_desc = (
         pd.read_csv(WIOD_CODES_PATH).set_index("code")["description"].to_dict()
@@ -503,12 +451,8 @@ else:
     tidy_eurostat = pd.DataFrame(columns=["source", "version", "year", "nace2d_from", "nace2d_to", "value"])
     phi_eurostat = pd.DataFrame(columns=["div_from", "div_to", "phi_eurostat"])
 
-# WIOD stays in ITS OWN native SNI02 divisions — no forward crosswalk to SNI07
-# (2026-07-29: the old behaviour projected these through mapping_02_07.csv,
-# which is exactly the cross-vintage pooling docs/conceptual_audit.md's
-# Input-output relatedness section flags. Its version label is SNI02 by classification, not by calendar year —
-# WIOD's codes are NACE Rev.1.1-style regardless of which benchmark year
-# (1995/2000/2005) is being read).
+# WIOD stays in its native SNI02 divisions (no crosswalk to SNI07). Its codes
+# are NACE Rev. 1.1 for every benchmark year (1995/2000/2005), hence SNI02.
 tidy_wiod, phi_wiod = source_phi_by_year(wiod_flows, sni02_section_inv, "WIOD", "wiod", "SNI02")
 phi_wiod = phi_wiod.rename(columns={"phi": "phi_wiod"})
 

@@ -35,7 +35,7 @@ export LATENT_DATA_ROOT="$(pwd)/data"   # see src/latent_industry/common/paths.p
 | `ownership_relatedness.parquet` (+ `.metadata.json`) | Ownership (corporate group) relatedness between 4-digit industries. |
 | `io_relatedness_SNI07.parquet` | Input–output relatedness between 2-digit NACE Rev. 2 industries (SCB and Eurostat tables). |
 | `io_relatedness_SNI02.parquet` | Input–output relatedness between 2-digit NACE Rev. 1.1 industries (WIOD tables). |
-| `io_relatedness.parquet` (+ `.metadata.json`) | Combined input–output relatedness across SCB, Eurostat and WIOD. |
+| `nace_embeddings_openai.npz` | Text embeddings of the official NACE Rev. 2 descriptions, input to the `nace_text` view. |
 
 ### Evaluation datasets — `processed/downstream_outcomes/`
 
@@ -62,8 +62,15 @@ embedding space. File variants differ only in the density specification:
 | `shared_cosine_v16_geo_raw_panel.parquet` | Geometric-mean analogue, raw employment weights |
 
 The paper's regressions are linear probability models of the outcome on
-standardised `density`, with industry, municipality and year fixed effects
-and standard errors clustered by municipality (`scripts/regional/P04_*.py`).
+standardised `density` per classification period, with municipality×year and
+industry fixed effects and standard errors clustered by municipality and
+industry (`src/latent_industry/regional/fixed_effects.py`). They can be
+re-estimated from these panels alone:
+
+```bash
+LATENT_DATA_ROOT=$PWD/data python scripts/regional/P04_entry.py --from-cache
+LATENT_DATA_ROOT=$PWD/data python scripts/regional/R02_fixed_effects_robustness.py
+```
 
 ## Restricted source data
 

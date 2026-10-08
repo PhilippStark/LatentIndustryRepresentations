@@ -1,105 +1,54 @@
 """
-build_labor_relatedness.py — Neffke-Henning skill relatedness from worker transitions.
+build_labor_relatedness.py
+==========================
+Labor (skill) relatedness between 4-digit industries from worker flows,
+following Neffke & Henning (2013). Requires the restricted SCB individual-level
+register panel.
 
-The raw data has a single column `Sni` that holds the period-appropriate code:
-  year ≤ 2001  → SNI92
-  2002 ≤ year ≤ 2006  → SNI02
-  year ≥ 2007  → SNI07
+Worker flows
+------------
+A flow i→j is a worker whose 4-digit industry is i in one year and j ≠ i in
+the next (stayers are excluded; an employer change within the same industry
+is not a flow). Flows are counted only within a classification
+period (SNI92: 1990–2001, SNI02: 2002–2006, SNI07: 2007–2019); year pairs
+that straddle a reclassification are skipped, because a code change there is
+a coding artifact rather than a move between industries.
 
-Only within-coding transitions are used — workers who change employer within
-the same classification period:
-                   SNI92 → SNI92  (year pairs 1990-91 through 2000-01)
-                   SNI02 → SNI02  (year pairs 2002-03 through 2005-06)
-                   SNI07 → SNI07  (year pairs 2007-08 through 2018-19)
+Observed-over-expected relatedness
+----------------------------------
+Per period, a Poisson regression over the full grid of industry pairs
+(unobserved pairs zero-filled) predicts the flow expected from industry
+characteristics alone:
 
-Transitions in a year straddling a reclassification (SNI92→SNI02 at 2001-02,
-SNI02→SNI07 at 2006-07) are not calculated at all: build_diffusion_targets.py's
-build_labor_relation() only ever consumed within-coding rows (a reclassification
-year's move is a coding artifact, not a real change of industry, and folding
-it into "labor" would mix that noise into what should be a clean signal), so
-there is nothing downstream to feed.
+  log E[f(i→j)] = b0 + b1 log(size_i) + b2 log(size_j) + b3 growth_i
+                     + b4 growth_j + b5 log(income_i) + b6 log(income_j)
 
-All flows are aggregated to 4-digit atom level across all three versions.
+with size (headcount), growth (year-on-year headcount change) and income
+(mean employment income) computed from the register panel. Relatedness is the
+smoothed observed/expected ratio, symmetrised:
 
-Observed-over-expected relatedness (Neffke & Henning 2013, SMJ):
+  R(i,j) = (f(i→j) + k) / (E[f(i→j)] + k),   k = SHRINKAGE_K = 1
+  phi(i,j) = (R(i,j) + R(j,i)) / 2
 
-  For each coding period, fit a Poisson regression of worker-flow counts on
-  origin/destination industry size, growth, and income, over the FULL pair
-  grid for that period's code universe (observed flows zero-filled in, not
-  just the pairs that happened to have a move):
+Poisson pseudo-maximum likelihood gives a consistent conditional mean under
+over-dispersion, which is all that is used here. The additive smoothing k
+pulls pairs with very few observed movers and a near-zero expected flow back
+towards 1.
 
-    log E[f(i->j)] = b0 + b1*log(size_i) + b2*log(size_j)
-                        + b3*growth_i    + b4*growth_j
-                        + b5*log(income_i) + b6*log(income_j)
-
-  size/growth/income are computed straight from the individual-level panel
-  (headcount, year-over-year headcount change, mean EmploymentIncome per
-  4-digit code), not from the flow table's own row/column sums — a code with
-  huge employment but low turnover should count as "large", even though it
-  would look small if size were inferred from flow degree alone.
-
-    R(i,j)   = (f(i->j) + k) / (E[f(i->j)] + k)      (>1: more flow than
-                                           industry characteristics alone
-                                           predict, i.e. more related than
-                                           expected; k = SHRINKAGE_K)
-    R_sym    = 0.5 * (R(i,j) + R(j,i))
-
-  This is the actual Neffke & Henning measure (ratio of observed to a
-  model's predicted flow), with one deliberate simplification: plain Poisson
-  instead of their zero-inflated negative binomial. Poisson's log-link mean
-  is a consistent estimator of the conditional mean even when the true
-  distribution is over-dispersed (the standard "Poisson PML" argument from
-  the gravity-model literature), and a full ZINB fit buys inferential
-  correctness (proper SEs) we don't need — we only ever use the point
-  prediction E[f(i->j)], never a p-value, and fitting one across 5 coding
-  periods x up to ~380k grid rows each is unnecessary weight for that.
-
-  R is a ratio of two noisy quantities, so a naive f/E has a heavy right
-  tail for pairs where the model predicts almost no flow but a handful of
-  moves happened anyway (small-sample noise, not relatedness) — confirmed
-  with measured evidence, not assumed: evaluate_route_weights.py at
-  diffusion_t=1 with every RELATION_BETA=0 still showed labor's weighted-mean
-  diffusion lift at ~73x the bare-hierarchy baseline, versus 2-5x for every
-  other relation, even after the MIN_LABOR_COUNT floor above. The additive
-  smoothing R = (count+k)/(expected+k) (SHRINKAGE_K, default 1.0) is the fix:
-  it leaves well-evidenced pairs (count and expected both reasonably large)
-  essentially untouched, while pulling a count=1-3 pair against a
-  near-zero predicted rate back toward 1 instead of letting it blow up.
-
-  An earlier non-parametric alternative — phi(i,j) = (f(i->j) + f(j->i)) /
-  (out(i) + in(j) + out(j) + in(i)), still in utils.symmetric_flow_phi and
-  used for IO relatedness in build_input_output_relatedness.py — has no notion of "expected"
-  flow at all: it normalizes by the flow network's own row/column sums, so
-  an industry that is large but has little employee turnover looks "small"
-  by that measure, and the share-based formula has no way to use
-  growth or income. It is bounded [0, 1] by construction, which the
-  observed/expected ratio above is not.
-
-transition_up/down are excluded from the balance objective: their baseline is
-structurally 0 (4d/SNI92 and 4d/SNI02 nodes have no hierarchy_up of their own,
-so the bare-hierarchy baseline leaves them with zero outgoing mass and
-lift_ratio is an uninformative inf regardless of beta) — they are an identity
-correspondence, not a relatedness density to balance against the others.
-
-Pairs are kept once total observed movers (both directions, pooled over the
-whole period) reach MIN_LABOR_COUNT — not a top-k or magnitude-based prune (no
-relative-rank or relatedness-score cutoff: the typed-relation diffusion in
-build_diffusion_targets.py gates entire relation types per node, not individual edges, so
-thinning by rank would only throw away real signal without changing how labor
-competes against other relation types). This is purely a minimum-evidence
-floor: 1-2 movers over a ~12-year pooled window is anecdotal, not evidence of
-relatedness, and was the dominant source of both the near-complete-graph
-density at the 4d level (most "barely above expected" pairs only had a
-couple of movers) and the heaviest outlier ratios (a tiny predicted rate plus
-one lucky mover gives an arbitrarily large R).
+Minimum evidence
+----------------
+A pair is kept only if at least --min-labor-count workers moved between the
+two industries (both directions, pooled over the period). The main run uses
+--min-labor-count 10.
 
 Output
 ------
-  <LUNARC_DATA_ROOT>/processed/labor_relatedness.parquet
-    columns: sni_from [str], sni_to [str], phi [float], coding [str]
-    coding ∈ {SNI07, SNI02, SNI92}
-    phi is the observed/expected ratio R_sym described above (kept under the
-    old column name so build_diffusion_targets.py needs no changes).
+  <LATENT_DATA_ROOT>/processed/labor_relatedness.parquet
+    sni_from, sni_to, phi, coding (SNI92 / SNI02 / SNI07)
+
+Usage
+-----
+  python scripts/data/build_labor_relatedness.py --min-labor-count 10
 """
 
 import argparse
@@ -140,7 +89,7 @@ parser.add_argument(
     type=int,
     default=3,
     help="Minimum total observed movers (both directions, pooled over the whole period) "
-         "for a pair to be kept at all — see module docstring's MIN_LABOR_COUNT discussion. "
+         "for a pair to be kept at all. "
          "Raising this keeps only higher-evidence pairs (fewer, more confident edges).",
 )
 args, _ = parser.parse_known_args()
@@ -299,24 +248,12 @@ def fit_expected_flow(observed: pd.DataFrame, stats: pd.DataFrame, universe: set
 
 def symmetrize_ratio(fit_df: pd.DataFrame) -> pd.DataFrame:
     """
-    R(i,j) = (count+k)/(expected+k); phi = 0.5*(R(i,j) + R(j,i)) — symmetric
-    by construction, so only one canonical row per unordered pair is kept
-    (sni_from < sni_to). Storing both directions would be pure duplication,
-    and build_diffusion_targets.py's row_normalize() already mirrors every "labor"-type
-    row back into both directions when it builds the transition matrix (it
-    has to: most other consumers of a symmetric relation, e.g. nace_4d's
-    triu_indices, only ever hand it one direction per pair too). Keeping both
-    here would double-count every pair that happens to have flow recorded in
-    both directions relative to the pairs that only have one direction
-    recorded — a storage artifact, not a real difference in relatedness.
+    R(i,j) = (count + k) / (expected + k); phi = (R(i,j) + R(j,i)) / 2.
 
-    The SHRINKAGE_K additive smoothing tempers pairs where expected is tiny
-    and count is small (see module docstring) — negligible once both are
-    reasonably large.
-
-    Pairs are then dropped unless total observed movers (count + count_rev)
-    reach MIN_LABOR_COUNT — see module docstring. The threshold uses the raw
-    counts, not the smoothed ratio, since it's evidence-based, not magnitude-based.
+    phi is symmetric, so one row per unordered pair is kept (sni_from < sni_to);
+    the graph builder mirrors it into both directions. Pairs are dropped unless
+    the total observed movers in both directions (count + count_rev) reach
+    MIN_LABOR_COUNT.
     """
     f = fit_df.copy()
     f["R"] = (f["count"] + SHRINKAGE_K) / (f["expected"] + SHRINKAGE_K)

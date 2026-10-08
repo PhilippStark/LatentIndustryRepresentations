@@ -81,9 +81,14 @@ def plot_density_effect_summary(
 
     # B. Year-by-year coefficients, in percentage points (displayed as "%").
     ax = axes[1]
-    yr = year_df["year"] + 0.5
-    ax.fill_between(yr, year_df["ci_low"] * 100, year_df["ci_high"] * 100, alpha=0.2, color=color)
-    ax.plot(yr, year_df["coef"] * 100, "o-", color=color, linewidth=1.6, markersize=4)
+    # One segment per classification period, so line and band do not bridge
+    # the excluded transition years.
+    segments = [year_df[year_df["period"] == p] for p in periods_order] \
+        if "period" in year_df.columns else [year_df]
+    for seg in segments:
+        yr = seg["year"] + 0.5
+        ax.fill_between(yr, seg["ci_low"] * 100, seg["ci_high"] * 100, alpha=0.2, color=color, lw=0)
+        ax.plot(yr, seg["coef"] * 100, "o-", color=color, linewidth=1.6, markersize=4)
     ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
     for x_line in (2001.5, 2006.5):
         ax.axvline(x_line, color="grey", linewidth=1, linestyle=":")
@@ -92,10 +97,9 @@ def plot_density_effect_summary(
     ax.set_title("B. Effect over time")
     ax.yaxis.grid(True, linestyle="--", alpha=0.4)
     ax.set_axisbelow(True)
-    # Headroom so the CI band never touches the top/bottom axis edge.
-    ax.relim()
-    ax.autoscale_view()
-    b_y0, b_y1 = ax.get_ylim()
+    # Limits from the CI band itself (plus zero), with headroom.
+    b_y0 = min(0.0, float(year_df["ci_low"].min()) * 100)
+    b_y1 = max(0.0, float(year_df["ci_high"].max()) * 100)
     b_pad = 0.08 * (b_y1 - b_y0)
     ax.set_ylim(b_y0 - b_pad, b_y1 + b_pad)
 

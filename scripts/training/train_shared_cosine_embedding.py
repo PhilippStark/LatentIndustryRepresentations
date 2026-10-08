@@ -1,62 +1,45 @@
-"""train_shared_cosine_embedding.py — Phase 9 of the operator-preserving
-regime (docs/operator_preserving_implementation_plan.md). The empty cell in
-the 2x2 the earlier two runs (multilayer_v1 / operator_v1) fall into:
+"""
+train_shared_cosine_embedding.py
+================================
+Trains the shared industry embedding Z (one vector per graph node) so that
+cosine similarities S_ij = cos(z_i, z_j) reproduce every multi-scale
+diffusion target of every relational view at once
+(scripts/graph/build_layer_diffusion_targets.py).
 
-                    shared cosine only     per-layer decoder
-one fused target    multilayer_v1          —
-many per-layer      (this script)          operator_v1
-
-`multilayer_v1` (train_sentence_embedding.py) fuses every layer into one
-coupled supra-diffusion target BEFORE training — any conflict between
-layers is already resolved (via the coupling parameter) before Z ever sees
-a gradient. `operator_v1` (train_operator_embedding.py) keeps per-layer
-targets but fits each with its own bilinear M_l — Phase 7 showed M_l can
-absorb a layer's own structure without that fit ever reaching Z's own
-plain-cosine geometry (the M_l-discard gap; see project history).
-
-This script is the missing cell: many per-layer, per-SCALE targets (every
-(layer, t) power kept separate, not weight-averaged — see
-scripts/graph/build_layer_diffusion_targets.py --expanded), every one
-scored against the SAME S_ij = cos(z_i, z_j) with at most a learnable
-scalar temperature per target (operator_observation_models.CosineObservationModel)
-— no M_l, no per-layer projection, nothing that can rotate the space. Any
-conflict between layers now has to resolve inside Z itself, during
-training, which is what every previous run's negative results were
-pointing at.
-
-Per docs/operator_preserving_implementation_plan.md Phase 9's own risk
-note: diagnose_scale_redundancy.py should be run first against `--name`
-to check whether a layer's own per-scale targets are highly mutually
-redundant (if so, splitting that layer's target adds little). The
-EXPANDED_DEFAULT_SCALES=(1,4) default already reflects that diagnostic's
-2026-07-27 finding against multilayer_v1 (t=2/4/8 highly redundant with
-each other for every layer; t=1 is not) — override --scales-<layer> only
-if re-running the diagnostic against a different graph changes that
-picture.
-
-Usage
+Model
 -----
-  python scripts/graph/build_layer_diffusion_targets.py --name multilayer_v1 --expanded
-  python scripts/training/train_shared_cosine_embedding.py --name multilayer_v1 --run-name shared_cosine_v1
-  python scripts/training/train_shared_cosine_embedding.py --name multilayer_v1 --run-name shared_cosine_v3_textinit \
-      --text-prior-init --embedding-dim 384
+- One shared latent space: each target is scored against the same cosine
+  similarity matrix, with at most a learnable scalar temperature per target
+  (operator_observation_models.CosineObservationModel). There are no
+  per-view projections, so conflicts between views must be resolved in Z.
+- Hierarchy hubs (SNI 2007 sections, 2- and 3-digit codes) are aggregates of
+  their 4-digit descendants (operator_embedding.build_hub_aggregation_matrix).
+- Losses: KL for diffusion targets, cross-entropy for hierarchy/transition
+  targets, an ordinal loss for hierarchy_t1. A view's weight --lambda-<view>
+  is split across its targets (operator_data.load_operator_data_expanded).
+- --text-prior-init initialises Z from a sentence-transformer encoding of
+  each node's NACE description (reduced by PCA with --text-prior-pca); no
+  loss term ties Z to this initialisation afterwards.
+- --saturation-frac stops gradients from a target once its loss falls below
+  that fraction of its null loss; --dynamic-reweight rescales each target by
+  a running average of its own loss so solved and unsolved targets keep
+  comparable weight.
 
-`--text-prior-init` (added 2026-07-27, confound check): shared_cosine_v1/v2
-are a 64-d embedding trained from small random noise with no encoder at
-all, compared against multilayer_v1's 384-d fine-tuned sentence-transformer.
-Part of shared_cosine's semantic-metric drop vs. multilayer_v1 (e.g.
-H_nace_rho_4d 0.47->0.31/0.26) could just be the absence of any text prior,
-not a property of the shared-cosine training objective itself — this flag
-isolates that: initialise Z from a frozen sentence-transformer encoding of
-each node's own NACE description (`ni.nodes["description"]`, already
-computed by NodeIndex — the same text multilayer_v1 fine-tunes on) instead
-of `0.01 * randn`, at the matching dimension (384 for the default
-all-MiniLM-L6-v2), then run the exact same joint shared-cosine training on
-top. If semantic metrics hold up much better with this warm start, the
-drop was mostly a missing-prior confound; if the joint objective still
-degrades them from their encoder-only starting point, that's evidence
-against the shared-cosine training dynamic itself, not just its lack of a
-prior.
+Outputs (<LATENT_DATA_ROOT>/embedding/{run_name}/)
+-------------------------------------------------
+  embeddings_{sni92,sni02,sni07}.npz, embeddings_sni07_{section,2d,3d}.npz
+  operator_state.pt, training_provenance.json, hub_coherence.csv,
+  loss_metric_correlation.csv (with --eval-every)
+
+Usage (main run, shared_cosine_v16)
+-----------------------------------
+  python scripts/training/train_shared_cosine_embedding.py \
+      --name layers_v1 --run-name shared_cosine_v16 \
+      --text-prior-init --text-prior-pca --embedding-dim 64 \
+      --lambda-hierarchy 0.10 --lambda-transition 0.10 --lambda-labor 0.30 \
+      --lambda-io 0.25 --lambda-nace_text 0.0 --lambda-ownership 0.125 \
+      --dynamic-reweight --reweight-stall-ratio 2.0 --saturation-frac 0.2 \
+      --eval-every 25 --epochs 500 --seed 42 --log-every 100
 """
 
 import argparse
@@ -93,62 +76,41 @@ parser.add_argument("--embedding-dim", type=int, default=None,
                           "be <= --text-prior-model's output dimension (defaults to 64).")
 parser.add_argument("--text-prior-init", action="store_true",
                      help="Initialise Z from a frozen sentence-transformer encoding of each "
-                          "node's own NACE description instead of small random noise — see "
-                          "the module docstring. Requires --embedding-dim to match "
-                          "--text-prior-model's output dim (auto-set if --embedding-dim is "
-                          "left at its default).")
+                          "node's NACE description instead of small random noise. Requires "
+                          "--embedding-dim to match --text-prior-model's output dim unless "
+                          "--text-prior-pca is set.")
 parser.add_argument("--text-prior-model", default="sentence-transformers/all-MiniLM-L6-v2",
                      help="Only used with --text-prior-init.")
 parser.add_argument("--text-prior-pca", action="store_true",
-                     help="With --text-prior-init: if --embedding-dim is smaller than "
-                          "--text-prior-model's own output dimension, reduce the encoded "
-                          "descriptions to --embedding-dim via PCA (fit on this graph's own N "
-                          "node embeddings) instead of requiring an exact dimension match. Lets "
-                          "Z keep a smaller --embedding-dim (e.g. 64) while still starting from "
-                          "a (lossily compressed) semantic prior instead of random noise.")
+                     help="With --text-prior-init: reduce the encoded descriptions to "
+                          "--embedding-dim by PCA (fit on the graph's nodes).")
 parser.add_argument("--saturation-frac", type=float, default=0.0,
-                     help="Item #1 (2026-07-27): a target's loss floor as a fraction of its own "
-                          "null (trivial-baseline) loss — once its raw loss drops below this "
-                          "fraction, it contributes exactly zero further gradient instead of "
-                          "continuing to compete with unsatisfied targets. 0.0 (default) is a "
-                          "no-op. Try e.g. 0.05-0.1.")
+                     help="Loss floor per target as a fraction of its null (trivial-baseline) "
+                          "loss: below it the target contributes no further gradient. "
+                          "0.0 = off.")
 parser.add_argument("--dynamic-reweight", action="store_true",
-                     help="Item #2 (2026-07-27): continuously re-derive each target's null-loss-"
-                          "style normalisation from a running EMA of its own loss, instead of "
-                          "freezing it at epoch 1 — keeps a target's contribution pinned near its "
-                          "fair share throughout training instead of fading as it's solved. "
-                          "Meant to be combined with --saturation-frac (which is what actually "
-                          "stops an already-solved target, at exactly zero).")
+                     help="Normalise each target by a running EMA of its own loss (instead of "
+                          "its epoch-1 loss) so its share of the gradient stays balanced during "
+                          "training. Used together with --saturation-frac.")
 parser.add_argument("--reweight-decay", type=float, default=0.9, help="EMA decay for --dynamic-reweight.")
 parser.add_argument("--reweight-max-ratio", type=float, default=20.0,
-                     help="Clamp on --dynamic-reweight's rescaling ratio (it -> infinity as a "
-                          "target's running loss -> 0).")
+                     help="Upper bound on --dynamic-reweight's rescaling ratio.")
 parser.add_argument("--reweight-stall-ratio", type=float, default=5.0,
-                     help="Item #4 (2026-07-27): once --dynamic-reweight's ratio would cross this, "
-                          "the target's loss must have improved by --reweight-stall-min-improvement "
-                          "since it last was below this threshold, or the ratio is capped here and "
-                          "the target flagged as stalled (structurally broken) rather than hard — "
-                          "guards against runaway boosts like shared_cosine_v4's "
-                          "transition_SNI02_SNI07_t1 (~10-15x with no real improvement).")
+                     help="Above this --dynamic-reweight ratio, a target's loss must have improved "
+                          "by --reweight-stall-min-improvement, otherwise the ratio is capped here "
+                          "and the target is flagged as stalled.")
 parser.add_argument("--reweight-stall-min-improvement", type=float, default=0.1,
                      help="Required relative loss improvement to avoid the stall cap (0.1 = 10%%).")
 parser.add_argument("--lr", type=float, default=1e-2)
 parser.add_argument("--epochs", type=int, default=500)
 parser.add_argument("--log-every", type=int, default=20)
 parser.add_argument("--eval-every", type=int, default=0,
-                     help="v7 §4.2: every N epochs (0 = off, default), compute one cheap "
-                          "family-specific reference metric per family (operator_diagnostics."
-                          "per_family_reference_metric — Spearman rho against labor/io/hierarchy "
-                          "relatedness, or crosswalk MRR for transition) and record it against "
-                          "that family's own training loss. Written to "
-                          "{run_dir}/loss_metric_correlation.csv, with a final per-family "
-                          "correlation printed: a healthy target has loss and metric moving in "
-                          "OPPOSITE directions over training (negative correlation — loss falls "
-                          "as the metric improves); a positive (or near-zero) correlation means "
-                          "the loss is falling WITHOUT the metric improving (or while it gets "
-                          "worse) — optimising a proxy that doesn't point at the object, exactly "
-                          "how the io lift bug was found (io_t4's loss improving while I_io_rho "
-                          "fell 0.598 -> 0.239, both moving the same direction over training).")
+                     help="Every N epochs (0 = off), record one reference metric per view "
+                          "(operator_diagnostics.per_family_reference_metric: Spearman rho "
+                          "against the source relatedness, or crosswalk MRR for transition) "
+                          "next to that view's training loss, in "
+                          "{run_dir}/loss_metric_correlation.csv. Loss and metric should move "
+                          "in opposite directions (negative correlation).")
 parser.add_argument("--seed", type=int, default=42)
 parser.add_argument("--io-loss", default=DEFAULT_LOSS_TYPES["io"], choices=["kl", "mse"],
                      help="io family's likelihood — kl (default, categorical) or mse (Gaussian).")
@@ -204,10 +166,9 @@ print(f"loss_types_by_family={loss_types_by_family}\nfamily_weights={family_weig
       f"embedding_dim={args.embedding_dim}  lr={args.lr}  epochs={args.epochs}")
 
 print("\nLoading expanded (per-layer, per-scale) diffusion targets …")
-# v7 §1.4: hierarchy_t1 becomes the ordinal 4d-4d tier target (see
-# graph.layer_diffusion.build_hierarchy_ordinal_tiers) instead of the
-# categorical hub-inclusive one — a no-op if "hierarchy_t1" isn't among the
-# loaded targets (e.g. --scales-hierarchy overridden to exclude t=1).
+# hierarchy_t1 is the ordinal 4d-4d tier target (see
+# graph.layer_diffusion.build_hierarchy_ordinal_tiers); no-op if
+# "hierarchy_t1" is not among the loaded targets.
 loss_type_overrides = {"hierarchy_t1": "ordinal"}
 operator_data = load_operator_data_expanded(
     args.name, loss_types_by_family=loss_types_by_family, family_weights=family_weights,
@@ -230,9 +191,8 @@ if ni.N != next(iter(operator_data.targets.values())).shape[0]:
         f"layer_diffusion_expanded_{args.name}.npz built from a different metadata snapshot?"
     )
 
-# v7 §1.2: hub (3d/2d/section) rows become a function of their flat 4d-SNI07
-# descendants instead of independently-trained free parameters — see
-# operator_embedding.build_hub_aggregation_matrix.
+# Hub (3d/2d/section) rows are a function of their 4d-SNI07 descendants
+# (operator_embedding.build_hub_aggregation_matrix), not free parameters.
 hub_aggregation = build_hub_aggregation_matrix(ni).to(device)
 
 if args.text_prior_init:
@@ -263,7 +223,7 @@ loss_metric_rows: list[dict] = []
 on_epoch = None
 if args.eval_every > 0:
     print(f"\n--eval-every {args.eval_every}: tracking per-family loss <-> reference-metric "
-          f"correlation (v7 §4.2) -> {run_dir / 'loss_metric_correlation.csv'}")
+          f"correlation -> {run_dir / 'loss_metric_correlation.csv'}")
 
     def on_epoch(epoch: int, Z_eff: torch.Tensor, per_target_losses: dict[str, float]) -> None:
         if epoch % args.eval_every != 0 and epoch != args.epochs:
@@ -300,7 +260,7 @@ if loss_metric_rows:
             corr = np.corrcoef(valid["mean_raw_loss"], valid["reference_metric"])[0, 1]
             # Healthy: loss down, metric up -> negative correlation. Positive
             # (or near-zero) means loss is falling without the metric
-            # improving -- the io lift bug's signature (v7 §4.2).
+            # improving.
             flag = "  <- target may not point at the object" if corr >= -0.1 else ""
             print(f"  {family:<14}{corr:>20.4f}{flag}")
         else:

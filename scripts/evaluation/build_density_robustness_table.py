@@ -1,23 +1,16 @@
 """
 build_density_robustness_table.py
-====================================
-Assembles results/paper/density_robustness.tex: robustness of the entry/
-exit/start-up density effect to the density aggregation rule (arithmetic
-vs. geometric mean) and employment-weighting scheme (raw vs. log
-employment) — the 4 combinations P04_entry.py/P04_exit.py/
-P04_startup_entry.py's own --density-var/--log-employment-weights flags
-produce:
+=================================
+Writes results/paper/density_robustness.tex: the entry, exit and start-up
+entry density effects under the four density specifications produced by
+P04_entry.py / P04_exit.py / P04_startup_entry.py:
 
-  D^A       ew,  raw employment   (--density-var ew  --no-log-employment-weights)
-  D^{A,log} ew,  log employment   (--density-var ew  --log-employment-weights)   <- main spec, used in the paper body
-  D^G       geo, raw employment   (--density-var geo --no-log-employment-weights)
-  D^{G,log} geo, log employment   (--density-var geo --log-employment-weights)
+  D^A        --density-var ew  --no-log-employment-weights   (file suffix _ew_raw)
+  D^{A,log}  --density-var ew  --log-employment-weights      (no suffix; main specification)
+  D^G        --density-var geo --no-log-employment-weights   (_geo_raw)
+  D^{G,log}  --density-var geo --log-employment-weights      (_geo_log)
 
-Each combination is its own standalone run of the three P04 scripts (see
-those scripts' own OUT_NAME suffix convention: unsuffixed = D^{A,log}
-baseline, _ew_raw = D^A, _geo_log = D^{G,log}, _geo_raw = D^G) — this
-script only reads their already-written summary.csv files and formats the
-LaTeX table; it runs no regressions itself.
+Reads the scripts' {run}{suffix}_summary.csv files; runs no regressions.
 
 Usage
 -----
@@ -34,12 +27,6 @@ project_root = Path(__file__).resolve().parents[2]
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name", required=True)
-parser.add_argument("--out-suffix", default="",
-                     help="Reads {run}{density_suffix}{out_suffix}_summary.csv (see P04_entry.py's "
-                          "own --out-suffix) instead of the published {run}{density_suffix}_summary.csv, "
-                          "and writes to density_robustness{out_suffix}.tex under results/paper/appendix/ "
-                          "instead of overwriting the published results/paper/density_robustness.tex — "
-                          "for investigating an alternative spec before promoting it.")
 args = parser.parse_args()
 run = args.run_name
 
@@ -72,7 +59,7 @@ missing: list[Path] = []
 for outcome_label, subdir, col in OUTCOMES:
     rows_by_outcome[outcome_label] = {}
     for _, suffix, _ in VARIANTS:
-        path = project_root / "results" / subdir / f"{run}{suffix}{args.out_suffix}_summary.csv"
+        path = project_root / "results" / subdir / f"{run}{suffix}_summary.csv"
         if not path.exists():
             missing.append(path)
             continue
@@ -94,9 +81,10 @@ lines = [
     "\\caption{Robustness of regional density effects to the aggregation rule and",
     "employment-weighting scheme. Each cell reports the coefficient (in",
     "percentage points) on standardized regional opportunity density from a",
-    "separate regression of the row's outcome on density, industry,",
-    "municipality, and year fixed effects, with standard errors (clustered by",
-    "municipality) in parentheses. $D^{\\mathrm{A,log}}$ (main specification, used",
+    "separate linear probability model of the row's outcome with",
+    "municipality$\\times$year and industry fixed effects, estimated per",
+    "classification period; standard errors clustered by municipality and",
+    "industry in parentheses. $D^{\\mathrm{A,log}}$ (main specification, used",
     "in the body of the paper) is the log-employment-weighted arithmetic mean;",
     "$D^{\\mathrm{A}}$, $D^{\\mathrm{G}}$, and $D^{\\mathrm{G,log}}$ are robustness",
     "specifications. $^{*}p<0.1$, $^{**}p<0.05$, $^{***}p<0.01$.}",
@@ -129,10 +117,7 @@ for i, (outcome_label, _, _) in enumerate(OUTCOMES):
 
 lines += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
 
-if args.out_suffix:
-    out_path = project_root / "results" / "paper" / "appendix" / f"density_robustness{args.out_suffix}.tex"
-else:
-    out_path = project_root / "results" / "paper" / "density_robustness.tex"
+out_path = project_root / "results" / "paper" / "density_robustness.tex"
 out_path.parent.mkdir(parents=True, exist_ok=True)
 out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(f"\n→ {out_path}")

@@ -1,13 +1,8 @@
-"""operator_data.py — Phase 2 of the operator-preserving regime (see
-docs/operator_preserving_implementation_plan.md). One flat container for
-everything training needs, so operator_trainer.py never touches `Layer` or
-`NodeIndex` directly.
-
-Not a `torch.utils.data.Dataset`: training here is full-batch — every epoch
-uses every active row of every layer, there's no notion of an
-individually-sampled "example" the way `Dataset.__getitem__` assumes, and
-`N` is small enough (order 1,000-few-thousand nodes) that a `DataLoader`
-would add batching machinery this problem doesn't need.
+"""
+operator_data.py — one container (OperatorData) with everything training
+needs: targets, domains, active rows, loss types, per-target weights and
+margins, and the target → family mapping. Training is full-batch (every
+active row of every target in every epoch), so no Dataset/DataLoader.
 """
 
 from dataclasses import dataclass, field
@@ -18,10 +13,8 @@ import torch
 from latent_industry.graph import artifacts
 from latent_industry.training.operator_losses import layer_loss
 
-# Per-layer likelihood assignment (math doc §5, design doc §3): labor/
-# nace_text/hierarchy/transition are categorical (kl/ce share one optimum,
-# see operator_losses.py); io defaults to kl too, with an mse option
-# available behind a config flag for experimentation.
+# Likelihood per family: all are categorical (kl/ce share one optimum, see
+# operator_losses.py); io can alternatively use mse (--io-loss).
 DEFAULT_LOSS_TYPES = {
     "labor": "kl",
     "nace_text": "kl",
@@ -41,7 +34,7 @@ class OperatorData:
     loss_types: dict[str, str]               # layer -> "kl" | "ce" | "mse"
     weights: dict[str, float]                # layer -> lambda_l
     margins: dict[str, float] = field(default_factory=dict)  # layer -> saturation floor (default 0, no-op)
-    families: dict[str, str] = field(default_factory=dict)   # target_id -> family (v7 §4.2), {} if unused
+    families: dict[str, str] = field(default_factory=dict)   # target_id -> family, {} if unused
 
     @staticmethod
     def from_numpy(
@@ -66,27 +59,17 @@ class OperatorData:
 
 
 def _null_loss(kind: str, target: np.ndarray, domain: np.ndarray, active: np.ndarray) -> float:
-    """The loss `kind` reports for the trivial "predict uniform" baseline,
-    restricted to this target's own domain/active rows exactly like
-    operator_trainer.restrict_to_domain does (diagonal excluded, rows
-    renormalised over the remaining support) — re-derived locally rather
-    than imported from operator_trainer.py to avoid a circular import
-    (operator_trainer.py already imports OperatorData from this module).
-    Used to scale each expanded target's raw loss down to "fraction of
-    trivial-baseline loss still unexplained" before weighting, since domain
-    size and target sharpness both shift a categorical loss's raw scale
-    (math doc §5 / implementation plan Phase 5) — without this, a target
-    with a bigger domain or a near-one-hot target row would automatically
-    look "harder" and end up dominating the joint gradient regardless of
-    its assigned family weight.
+    """
+    Loss of the trivial "predict uniform" baseline for one target, on the same
+    domain-restricted, diagonal-excluded, row-renormalised target as
+    operator_trainer.restrict_to_domain (re-derived here to avoid a circular
+    import). Raw losses are divided by it so that domain size and target
+    sharpness do not make a target look harder than it is.
 
-    `kind == "ordinal"` (v7 §1.4) is special-cased: its `target` is a
-    tier-rank matrix (values in {0..4}), not a probability distribution, so
-    it must NOT go through the diagonal-zero/row-renormalise step every
-    other kind gets here — that would corrupt the tier labels. The "trivial
-    baseline" for an ordinal target is all-equal (zero) logits, which makes
-    every present tier's mean similarity equal, so the null loss is a
-    deterministic, non-zero function of `margin` — safe to divide by."""
+    For kind == "ordinal" the target is a tier-rank matrix, not a distribution,
+    so it is not renormalised; the baseline (all-equal logits) gives a
+    non-zero null loss that depends only on the margin.
+    """
     if kind == "ordinal":
         t = torch.tensor(target[domain][:, domain], dtype=torch.float32)
         a = torch.tensor(active[domain], dtype=torch.bool)
@@ -118,64 +101,30 @@ def load_operator_data_expanded(
     device: str = "cpu",
     loss_type_overrides: dict[str, str] | None = None,
 ) -> OperatorData:
-    """Phase 9 loader (docs/operator_preserving_implementation_plan.md):
-    reads layer_diffusion_expanded_{name}.npz, whose targets are keyed by
-    `target_id = f"{layer}_t{t}"` rather than by layer — every (layer, t)
-    scale kept as its own separate training target (see
-    layer_diffusion.build_layer_diffusion_targets_expanded), scored by a
-    shared-cosine observation model (operator_observation_models.CosineObservationModel)
-    instead of a per-layer M_l.
+    """
+    Load layer_diffusion_expanded_{name}.npz (targets keyed by
+    target_id = f"{view}_t{t}") into an OperatorData for the shared-cosine model.
 
-    The returned `OperatorData.weights[target_id]` is a **two-stage**
-    normalisation (v7 §1.3 — the single-stage version had a real bug, not
-    just an approximation: `family_weights[family] /
-    n_targets_in_family[family] / null_loss[target_id]` applies the
-    `/n_targets_in_family` split BEFORE dividing by null loss, so the
-    null-loss division — which varies enormously by domain/family scale —
-    destroys the intended even split entirely. Measured in v5: io and labor
-    ended up at 41.6%/41.0% of the joint loss against an intended 20% each,
-    while hierarchy got 2.6%. The fix re-normalises a SECOND time, after the
-    null-loss division, per family:
+    Weights (two-stage normalisation): within each family, targets are weighted
+    by the inverse of their null loss and rescaled so that the family's targets
+    sum to its family weight,
 
         w_t = family_weights[family] * (1 / null_loss[t]) /
-              sum_{t' in family(t)} (1 / null_loss[t'])
+              Σ_{t' ∈ family(t)} (1 / null_loss[t'])
 
-    This still normalises each target's own raw loss by its own trivial-
-    baseline scale (so a bigger domain or near-one-hot target doesn't
-    automatically dominate), but now GUARANTEES `sum(w_t for t in family) ==
-    family_weights[family]` exactly, regardless of how many scales that
-    family has or how uneven their null losses are — the property the old
-    formula never actually had.
+    so each family receives exactly its assigned weight regardless of how many
+    scales it has or how different their null losses are.
 
-    `saturation_frac` (default 0, no-op — user's item #1, 2026-07-27):
-    `OperatorData.margins[target_id] = saturation_frac * null_loss[target_id]`,
-    a per-target loss floor operator_trainer.train_joint subtracts before
-    weighting (clamped at 0) — once a target's raw loss drops below
-    `saturation_frac` of its own trivial-baseline loss, it's "satisfied"
-    and contributes exactly zero further gradient, instead of continuing to
-    compete (however faintly) with targets that are still unsatisfied. A
-    reasonable starting point is small (e.g. 0.05-0.1): the empirical
-    motivation (shared_cosine_v2) was `transition_SNI92_SNI02_t1` fitting to
-    ~2% of its null loss while `transition_SNI02_SNI07_t1` stayed pinned
-    near 100% of its own — a saturating floor lets the former stop pulling
-    on shared SNI02 anchor nodes once it's clearly done, rather than
-    continuing to sharpen indefinitely.
+    saturation_frac (default 0 = off): margins[t] = saturation_frac *
+    null_loss[t]; operator_trainer.train_joint subtracts this floor (clamped at
+    0), so a target below the floor stops contributing gradient.
 
-    `loss_type_overrides` (v7 §1.4, default None): per-TARGET loss-kind
-    overrides applied after the family-based `loss_types_by_family` lookup —
-    lets e.g. `hierarchy_t1` be `"ordinal"` while `hierarchy_t4` stays the
-    family's normal `"ce"`, without needing a new top-level family. `_null_loss`
-    special-cases `"ordinal"` targets (see below): their target matrix is a
-    tier-rank matrix, not a probability distribution, so it must not go
-    through the row-renormalisation every other kind gets.
+    loss_type_overrides: per-target loss kinds applied after the per-family
+    loss types (e.g. hierarchy_t1 = "ordinal" while hierarchy_t4 stays "ce").
 
-    The returned `OperatorData.families` (v7 §4.2) is the same
-    `target_id -> family` mapping this loader already reads from
-    `artifacts.load_layer_diffusion_targets_expanded`, now threaded through
-    instead of being discarded — lets a caller (e.g.
-    train_shared_cosine_embedding.py's `--eval-every`) group per-epoch raw
-    losses by family without needing to re-derive it from target_id naming
-    conventions."""
+    The returned OperatorData.families maps target_id → family, used to group
+    per-epoch losses by family (train_shared_cosine_embedding.py --eval-every).
+    """
     targets_np, domains_np, families = artifacts.load_layer_diffusion_targets_expanded(name)
     active_np = {t: (targets_np[t].sum(axis=1) > 0) for t in targets_np}
 

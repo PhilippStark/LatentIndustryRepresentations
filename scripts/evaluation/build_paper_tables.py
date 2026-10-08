@@ -1,44 +1,22 @@
 """
-build_paper_tables.py — one place for the paper's Result-1/2/3 tables and
-the restricted source-complementarity plot, all built from data other
-scripts already computed (no relatedness/embedding recomputation here):
+build_paper_tables.py
+=====================
+Assembles the paper's Result 1–3 tables and figures in results/paper/ from
+outputs other scripts have already written (nothing is recomputed):
 
-  1. Source complementarity (Result 1), restricted to the sources actually
-     used to train --run-name — reuses P01_source_complementarity.py's own
-     loading/metric/plotting functions (imported, not reimplemented) rather
-     than recomputing the six-source matrices from scratch. "Used" is read
-     straight off {run}/training_provenance.json's family_weights (the same
-     source of truth _shared_eval_context.is_family_excluded checks), so
-     this stays correct for future runs without hand-maintained source
-     lists — a source counts as used unless its weight is exactly 0.0.
-  2. Rhos table (Result 2): one row per evidence family, Baseline (the
-     untrained sentence-encoder pass — sentence-transformers/all-MiniLM-
-     L6-v2, the SAME model used for --text-prior-init, so this table is
-     simultaneously "vs. baseline" and "vs. text-prior") vs. Trained,
-     read straight off P02_shared_geometry_reconstruction.py's cached
-     {run}_summary.csv — no relatedness data is reloaded here. Includes an
-     "In training objective" Yes/No column: P02 reports a rho for every
-     family regardless of whether it was excluded from training (lambda=0.0
-     in training_provenance.json), so an excluded family (e.g. v15's
-     nace_text) still gets a real number here — that's intentional
-     (a generalisation/erosion check), and this column is what makes it
-     visible instead of silently indistinguishable from a trained row.
-  3. Retrieval table (Result 3, §B/B2): same source, no plot.
-  4. Copies the remaining already-built paper plots (P03's hierarchy-
-     preservation and learned-opportunity-space maps, plus Result 4's
-     entry/exit plots) into results/paper/ too, so every main-text figure
-     lives in one place instead of several different results/ subfolders —
-     nothing is rebuilt in this step, only copied. Growth/wage-growth are
-     appendix-only material and go into results/paper/appendix/ instead;
-     diversification isn't reported at all and is never copied. All
-     outputs are named result{1,2,3,4}_... — not the long --run-name —
-     since results/paper/ holds the CURRENT paper's figures, not a per-run
-     archive.
+1. Source complementarity (Result 1), restricted to the sources with
+   non-zero training weight in {run}/training_provenance.json, using
+   P01_source_complementarity.py's functions.
+2. Reconstruction table (Result 2): baseline vs trained Spearman rho per
+   evidence family, from P02's {run}_summary.csv, with a column marking
+   whether the family is part of the training objective.
+3. Retrieval table (Result 3, sections B/B2), from P03.
+4. Copies of the hierarchy-preservation plot and the regional result plots
+   into results/paper/ (growth and wage growth into results/paper/appendix/).
 
 Usage
 -----
-  python scripts/evaluation/build_paper_tables.py \\
-      --run-name shared_cosine_v16
+  python scripts/evaluation/build_paper_tables.py --run-name shared_cosine_v16
 """
 
 import argparse
@@ -78,10 +56,10 @@ def load_family_weights(run_name: str) -> dict:
 
 
 def active_sources(run_name: str) -> list[str]:
-    """Sources with a nonzero training weight. Missing training_provenance.json
-    (legacy runs, or the baseline itself) means nothing was deliberately
-    excluded, so every P01 source is kept — same convention as
-    _shared_eval_context.is_family_excluded's False default."""
+    """
+    Sources with a non-zero training weight. Without a training_provenance.json
+    (e.g. the baseline) every P01 source is kept.
+    """
     weights = load_family_weights(run_name)
     if not weights:
         return list(ALL_SOURCE_NAMES)
@@ -135,17 +113,11 @@ def _mean_of(row: pd.Series, keys: list[str]) -> float:
 
 # ── Rho table row layout (Result 2) ────────────────────────────────────────
 # One row per evidence family. Labor/Ownership average over whichever
-# SNI07/02/92 rho columns P02 computed (same granularity, just a
-# different coding vintage — averaging is meaningful, as in
-# build_paper_table.py's MACRO_FAMILIES). NACE's four hierarchy levels are
-# NOT averaged together — 4d/3d/2d/section are different granularities of
-# the same relation, so each gets its own row (extends build_paper_table.py's
-# MACRO_FAMILIES, which predates the Ownership section and only
-# covered Labor/NACE/IO/Concordance/Hierarchy/Fused-diffusion). Input-output
-# likewise gets two rows: the 2-digit hub-cosine rho (I_io_rho) and the
-# 4-digit aggregate-up rho (I_io_aggregate_rho, v7 §4.3's mean of 4d-4d
-# cosines per division pair) — a real gap between them is itself informative
-# (hub/4d decoupling), so collapsing to one number would hide that.
+# SNI07/02/92 rho columns P02 computed (same granularity, different coding
+# vintage). NACE's four hierarchy levels (4d/3d/2d/section) are different
+# granularities and get one row each. Input-output gets two rows: the
+# 2-digit hub-cosine rho (I_io_rho) and the aggregate-up rho over 4-digit
+# codes (I_io_aggregate_rho, mean of 4d-4d cosines per division pair).
 #
 # A family excluded from training (lambda=0.0 in training_provenance.json)
 # has no cached rho at all — P02 gates compute_key_metrics on
@@ -182,15 +154,8 @@ def load_summary(run_name: str) -> pd.DataFrame:
     return pd.read_csv(path).set_index("run")
 
 
-# Each build_resultN function is independently wrapped in try/except by
-# main() below — v7 §... no, this isn't versioned math, just plain
-# engineering: a failure partway through (e.g. 2026-08-31's KeyError when
-# summary.csv's own "run" column still held a pre-rename name) used to
-# silently abort every section textually AFTER it too, even sections 3/4
-# that don't depend on section 2 at all — result3_hierarchy_preservation.png
-# etc sat stale for days with no error surfaced anywhere. Each section now
-# reports its own clear success/failure instead of one crash taking out
-# the rest.
+# Each build_resultN function is wrapped in its own try/except by main(), so
+# a failure in one section is reported without skipping the others.
 
 def build_result1(args) -> None:
     print("=" * 70)
@@ -315,20 +280,12 @@ def build_result3(args, baseline: pd.Series, trained: pd.Series, trained_col: st
 
 
 def build_result4(args) -> None:
-    """Copy the remaining paper-ready plots into the same place. These are
-    NOT rebuilt here — hierarchy preservation and the learned-opportunity-
-    space map are P03_emergent_structure.py's own plots; the Result-4
-    (opportunity spaces) plots are P04_entry.py/P04_exit.py/P04_growth.py/
-    P04_wage_growth.py's own outputs. Copied under a fixed result{N}_ name —
-    not the long --run-name — since this folder is the current paper's
-    figures, not a per-run archive; regenerating for a different run just
-    overwrites these same paths.
-
-    Main-text Result 4 is entry/exit only. Growth (P04_growth.py) and wage
-    growth (P04_wage_growth.py) are appendix-only material and go in a
-    separate results/paper/appendix/ subfolder instead of the main list.
-    Diversification (P04_diversification.py) isn't reported at all —
-    neither main text nor appendix — so it's not copied anywhere."""
+    """
+    Copy the already-built paper plots into results/paper/ under fixed
+    result{N}_ names: P03's hierarchy-preservation plot and the regional entry,
+    exit and start-up entry plots (main text). Growth and wage-growth plots go
+    to results/paper/appendix/.
+    """
     print("\n" + "=" * 70)
     print("4. Copying remaining paper-ready plots")
     print("=" * 70)
@@ -337,13 +294,8 @@ def build_result4(args) -> None:
     missing: list[Path] = []
     to_copy = [
         (eval_dir / run / f"{run}_A_hierarchy_preservation.png", "result3_hierarchy_preservation.png"),
-        (eval_dir / run / f"{run}_D_tsne_all_by_section.png", "result3_opportunity_space.png"),
-        # result3_opportunity_space.html (the interactive plotly version, from
-        # INTERACTIVE_PLOTS_DIR) deliberately NOT copied here (2026-08-31) —
-        # several MB, too large to push to the git-tracked results/paper/
-        # tree. Stays on LUNARC storage only (INTERACTIVE_PLOTS_DIR /
-        # f"{run}_D_tsne_interactive.html"); link to it there directly
-        # instead of expecting a copy in results/paper/.
+        # result3_opportunity_space.png is written directly by
+        # scripts/paper/plot_opportunity_space.py.
         (project_root / "results" / "regional_entry" / f"{run}_entry.png", "result4_entry.png"),
         (project_root / "results" / "regional_exit" / f"{run}_exit.png", "result4_exit.png"),
         (project_root / "results" / "regional_startup_entry" / f"{run}_startup_entry.png", "result4_startup.png"),
@@ -357,17 +309,9 @@ def build_result4(args) -> None:
             print(f"  NOT FOUND (skipped): {src}")
             missing.append(src)
 
-    # Appendix material is ONLY the growth/wage-growth BINARIZED outcome
-    # (growth>0/wage_growth>0 vs. density — see P04_growth.py/
-    # P04_wage_growth.py's own "Appendix: binarized ... outcome" section,
-    # which runs unconditionally, no flag needed). The continuous multi-
-    # kernel analysis's own diagnostic plots (regional_density,
-    # related_vs_unrelated, muni_slope_distribution) and the continuous
-    # wage_growth.png are NOT appendix material and are deliberately not
-    # copied here (2026-08-31) — this folder used to also collect those,
-    # which is why 4 stale files needed manually clearing out; if you see
-    # anything besides *_growth_binary.png/*_wage_growth_binary.png show up
-    # here again, something regressed this list.
+    # Appendix material: the binarised growth / wage-growth outcomes
+    # (growth > 0, wage_growth > 0 vs. density) from P04_growth.py and
+    # P04_wage_growth.py.
     appendix_dir = paper_dir / "appendix"
     appendix_dir.mkdir(parents=True, exist_ok=True)
     to_copy_appendix = [

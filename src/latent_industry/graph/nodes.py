@@ -1,15 +1,9 @@
-"""nodes.py — the heterogeneous node index shared by every layer.
+"""
+nodes.py — the node index shared by every view.
 
-Three granularities, twelve (node_type, version) combinations. 4d/SNI07,
-4d/SNI02, 4d/SNI92 are the embedding targets; 3d/2d/section exist for all
-three versions as hierarchy hubs (v7 §2, 2026-07-28 — previously SNI07 only,
-since that's the version with full NACE Rev.2 documentation; SNI92/SNI02's
-3d/2d/section descriptions are the plain SCB labels from their own
-mapping_Sni_*digits_{1992,2002}.json files, same source as SNI07's hub
-descriptions actually already used — see nodes.py's own _load_3d/_load_2d/
-_load_section, which never read the richer NACE Rev.2 text either). See
-docs/archive/build_graph.md §1 for the old, now-superseded SNI07-only
-node-count table.
+Three SNI versions (SNI92, SNI02, SNI07) × four granularities: 4-digit codes
+are the embedding targets; 3-digit, 2-digit and section codes are hierarchy
+hubs. Descriptions are the SCB labels from metadata/mapping_Sni_*_{1992,2002,2007}.json.
 """
 
 import json
@@ -52,16 +46,15 @@ _YEAR_BY_VERSION = {"SNI07": "2007", "SNI02": "2002", "SNI92": "1992"}
 
 
 class NodeIndex:
-    """nodes: DataFrame(node_id, code, node_type, version, description, is_target).
+    """
+    nodes: DataFrame(node_id, code, node_type, version, description, is_target).
     node_idx: (node_type, version, code) -> node_id.
-    target_ids: node_id list of the 4d embedding-target rows, in table order.
+    target_ids: node ids of the 4d embedding targets, in table order.
 
-    Node id ORDER (stable, load-bearing — every cached artifact keyed by
-    node id depends on it): all 4d (SNI07, then SNI02, then SNI92), then all
-    3d (same version order), then all 2d, then all section — i.e. grouped
-    by node_type first, version second, matching the original SNI07-only
-    layout with the other two versions' hub levels simply appended after
-    each level's SNI07 block, not interleaved."""
+    Node id order is fixed and all cached artifacts depend on it: all 4d
+    (SNI07, SNI02, SNI92), then all 3d (same version order), then all 2d,
+    then all sections.
+    """
 
     def __init__(self):
         sni_4d = {ver: _load_4d(_YEAR_BY_VERSION[ver]) for ver in ("SNI07", "SNI02", "SNI92")}

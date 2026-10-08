@@ -1,48 +1,33 @@
 """
 P04_wage_growth.py
-=================================
-Tests whether industries embedded closer to a region's existing employment
-structure see faster local WAGE growth, not just headcount growth — the same
-relatedness-density hypothesis as P04_growth.py, applied to a
-different outcome. Agglomeration theory (Marshall externalities, Combes et
-al. 2012 wage-density literature) predicts related density could raise
-worker productivity/bargaining position even in industries whose headcount
-isn't moving, so this is a genuinely distinct question from
-P04_growth.py, not a re-derivation of it.
+==================
+Relatedness density and local wage growth of industries (appendix).
+Requires the restricted SCB individual-level register panel.
 
 Outcome
 -------
-For municipality m, 4-digit SNI industry j, year t: mean_wage_{j,m,t} = the
-average EmploymentIncome of workers registered in that (industry,
-municipality, year) cell (same base population as every other regional
-script — Sni and WorkplaceMunicipality both present, harmonized to the
-canonical 290-municipality geography). Outcome:
+For industry j, municipality m and year t, mean_wage is the average
+employment income of the workers in the cell, and
 
-    wage_growth_{j,m,t} = arcsinh(mean_wage_{j,m,t+1}) - arcsinh(mean_wage_{j,m,t})
+  wage_growth_{j,m,t} = arcsinh(mean_wage_{j,m,t+1}) − arcsinh(mean_wage_{j,m,t})
 
-Unlike P04_growth.py's headcount outcome, a wage is undefined
-for zero workers, so there is no entry/exit margin here by construction: the
-candidate set is restricted to cells with at least --min-workers employees in
-BOTH t and t+1 (intensive margin only — same reasoning as
-P04_entry.py/_exit.py's --min-workers floor, but required here
-just to get a well-defined mean, not as an economic-significance filter).
+Only cells with more than --min-workers workers in both t and t+1 are used
+(intensive margin).
 
 Design
 ------
-Deliberately the same core as P04_growth.py's (corrected,
-per-period) design — industry-varying base softmax density, industry +
-municipality + year FE via triple demeaning (separate additive municipality
-and year effects, not an interacted municipality×year term), SE clustered by
-municipality, run separately per SNI classification period — but without
-that script's
-near/far variety horse race, kNN robustness check, or interactive maps: those
-were extensions specific to the headcount-growth investigation, not part of
-the core relatedness-density test this script exists to replicate for wages.
+Softmax density (--tau), industry, municipality and year fixed effects
+(sequential demeaning), SE clustered by municipality, per classification
+period. Appendix result: wage_growth_binary = 1{wage_growth > 0} regressed on
+the main-text density D^{A,log} with the main specification of P04_entry.py
+(municipality×year + industry FE, two-way clustered SE).
 
-Usage
------
-  python scripts/regional/P04_wage_growth.py
-  python scripts/regional/P04_wage_growth.py --run-name graph_kl --min-workers 10
+Outputs: results/regional_wage_growth/{run}{suffix}_* and the panel under
+<LATENT_DATA_ROOT>/processed/downstream_outcomes/wage_growth/.
+
+Usage (main run)
+----------------
+  python scripts/regional/P04_wage_growth.py --run-name shared_cosine_v16
 """
 
 import argparse
@@ -61,6 +46,8 @@ sys.path.insert(0, str(project_root / "src"))
 from latent_industry.common.paths import EMBEDDING_DIR, PROCESSED_DATA_DIR
 from latent_industry.common.municipalities import harmonization_table, load_municipality_crosswalk
 from latent_industry.regional.density import employment_weighted_density, cosine_matrix
+from latent_industry.regional.fixed_effects import standardise_density
+from latent_industry.regional.reporting import report_density_regressions
 from latent_industry.regional.regional_figures import plot_density_effect_summary
 
 DATA_ROOT    = Path("/lunarc/nobackup/projects/lu2025-17-39")
@@ -77,18 +64,17 @@ OUT_DIR = PROCESSED_DATA_DIR / "downstream_outcomes" / "wage_growth"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Defaults — edit here when running directly in VS Code ─────────────────────
-DEFAULT_RUN_NAME    = "multilayer_v1"
+DEFAULT_RUN_NAME    = "shared_cosine_v16"
 DEFAULT_TAU         = 1.0   # softmax temperature for the relatedness-density kernel
 DEFAULT_MIN_WORKERS = 5     # both years need > this many workers for a wage cell to count
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
-                    help="Embedding run (from train_sentence_embedding.py --run-name).")
+                    help="Embedding run under EMBEDDING_DIR (train_shared_cosine_embedding.py --run-name).")
 parser.add_argument("--out-suffix", default="",
                     help="Appended to OUT_NAME (output filename prefix) without touching "
-                         "--run-name, so an investigative run (e.g. a fixed-effects spec "
-                         "change) never overwrites this run's already-published outputs.")
+                         "--run-name, so variant runs do not overwrite the main outputs.")
 parser.add_argument("--tau", type=float, default=DEFAULT_TAU,
                     help="Softmax temperature for the relatedness-density kernel.")
 parser.add_argument("--min-workers", type=int, default=DEFAULT_MIN_WORKERS,
@@ -151,7 +137,7 @@ print(f"\nLoading embeddings from {embed_dir} …")
 def load_emb(label: str) -> tuple[np.ndarray, list[str]]:
     path = embed_dir / f"embeddings_{label}.npz"
     if not path.exists():
-        raise FileNotFoundError(f"{path} — run train_sentence_embedding.py first.")
+        raise FileNotFoundError(f"{path} — run train_shared_cosine_embedding.py first.")
     d     = np.load(path, allow_pickle=True)
     vecs  = d["embeddings"].astype(np.float32)
     codes = list(d["codes"].astype(str))
@@ -447,90 +433,25 @@ print(f"  → {results_dir}/  ({OUT_NAME}_year_coefs.csv, _period_summary.csv)  
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 8. Appendix: binarized wage-growth outcome — wage_growth_binary = 1{wage_growth
-#    > 0}, regressed on density_ew_log (the entry/exit/startup_entry baseline),
-#    same industry + municipality + year FE triple demeaning, same per-period
-#    design, same shared plotting function. Purely additive: does not touch or
-#    depend on anything in the continuous analysis above. Same candidate rows
-#    as the continuous outcome (>min_workers in both t and t+1, intensive
-#    margin only).
+# 8. Appendix: binarised outcome wage_growth_binary = 1{wage_growth > 0}, regressed on the
+#    main-text density D^{A,log} (density_ew_log) with municipality×year +
+#    industry fixed effects and SE clustered by municipality and industry
+#    (latent_industry.regional.reporting), per classification period.
 # ═══════════════════════════════════════════════════════════════════════════════
 
-print("\n" + "=" * 60)
-print("Appendix: relatedness density → positive wage growth (binarized), "
-      "per classification period, industry + municipality + year FE, SE clustered by muni")
-print("=" * 60)
-
 panel["wage_growth_binary"] = (panel["wage_growth"] > 0).astype(float)
-_sd_ew_log = float(panel["density_ew_log"].std())
-panel["density_ew_log_std"] = panel["density_ew_log"] / _sd_ew_log
-print(f"  density_ew_log pre-standardised (÷ SD = {_sd_ew_log:.6f}, pooled across all periods)")
-
-WAGE_BINARY_OUTCOME = "wage_growth_binary"
-wage_binary_results: dict[str, dict] = {}
-wb_dm_frames: list[pd.DataFrame] = []
-
-for period_name in periods_order:
-    sub = panel[panel["period"] == period_name].copy()
-    for var in [WAGE_BINARY_OUTCOME, "density_ew_log_std"]:
-        sub[f"{var}_r1"] = demean(sub, var,         "municipality")
-        sub[f"{var}_r2"] = demean(sub, f"{var}_r1",  "year")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_r2",  "industry")
-
-    res  = run_ols(sub[f"{WAGE_BINARY_OUTCOME}_dm"], sub["density_ew_log_std_dm"], sub["municipality"])
-    rate = float(sub[WAGE_BINARY_OUTCOME].mean())
-    res["pct_of_baseline"] = res["coef"] / rate * 100 if rate > 0 else float("nan")
-    res["rate"] = rate
-    wage_binary_results[period_name] = res
-    print(f"  {period_name}:  coef={res['coef']:+.6f}  SE={res['se']:.6f}  t={res['t']:.3f}  "
-          f"p={res['pval']:.3e}  N={res['n']:,}  baseline rate={rate:.4%}  "
-          f"→ β = {res['pct_of_baseline']:+.1f}% of baseline per 1-SD density_ew_log")
-    wb_dm_frames.append(sub)
-
-wb_panel = pd.concat(wb_dm_frames, ignore_index=True)
-
-wb_year_records: list[dict] = []
-for year, sub in panel.groupby("year"):
-    sub = sub.copy()
-    if sub["municipality"].nunique() < 2:
-        continue
-    for var in [WAGE_BINARY_OUTCOME, "density_ew_log_std"]:
-        sub[f"{var}_dm"] = demean(sub, var, "municipality")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_dm", "industry")
-    r = run_ols(sub[f"{WAGE_BINARY_OUTCOME}_dm"], sub["density_ew_log_std_dm"], sub["municipality"])
-    r["year"] = int(year)
-    wb_year_records.append(r)
-wb_year_df = pd.DataFrame(wb_year_records).sort_values("year")
-
-# Panel A plots outcome-by-density-decile using whatever column is literally
-# named "density" — swap in density_ew_log (the density this appendix
-# regresses on) rather than the continuous analysis's own softmax "density".
-_wb_plot_panel = wb_panel.drop(columns=["density"]).rename(columns={"density_ew_log": "density"})
-_wb_fig_path = plot_density_effect_summary(
-    _wb_plot_panel, wb_year_df, wage_binary_results,
-    periods_order, WAGE_BINARY_OUTCOME,
-    "Observed positive wage-growth rate",
-    "Effect on positive wage-growth probability per 1-SD density (in %)",
-    "purple",
-    results_dir / f"{OUT_NAME}_wage_growth_binary.png",
+standardise_density(panel, "density_ew_log", "density_ew_log_std")
+report_density_regressions(
+    panel, "wage_growth_binary", "Observed positive wage-growth rate",
+    "Effect on positive wage-growth probability per 1-SD density (in %)", "purple",
+    fig_path=results_dir / f"{OUT_NAME}_wage_growth_binary.png",
+    summary_path=results_dir / f"{OUT_NAME}_wage_growth_binary_summary.csv",
+    year_path=results_dir / f"{OUT_NAME}_wage_growth_binary_year_coefs.csv",
+    summary_extra={"run": args.run_name},
+    density_col="density_ew_log_std", plot_density_col="density_ew_log",
 )
-print(f"  → {_wb_fig_path}")
-
-wb_year_df.to_csv(results_dir / f"{OUT_NAME}_wage_growth_binary_year_coefs.csv", index=False)
-wb_summary_rows = []
-for period_name in periods_order:
-    in_period = panel["period"] == period_name
-    res = wage_binary_results[period_name]
-    wb_summary_rows.append({
-        "run": args.run_name, "period": period_name,
-        "n_obs": int(in_period.sum()),
-        "wage_growth_binary_rate": panel.loc[in_period, WAGE_BINARY_OUTCOME].mean(),
-        "wage_growth_binary_coef": res["coef"], "wage_growth_binary_se": res["se"],
-        "wage_growth_binary_pval": res["pval"], "wage_growth_binary_r": res["partial_r"],
-        "wage_growth_binary_pct_of_baseline": res["pct_of_baseline"],
-    })
-pd.DataFrame(wb_summary_rows).to_csv(results_dir / f"{OUT_NAME}_wage_growth_binary_summary.csv", index=False)
-print(f"  → {results_dir}/  ({OUT_NAME}_wage_growth_binary_year_coefs.csv, "
-      f"_wage_growth_binary_summary.csv)")
+# Small cache of this appendix panel, so it can be re-estimated without the microdata.
+panel[["period", "year", "municipality", "industry", "density_ew_log", "wage_growth_binary"]].to_parquet(
+    OUT_DIR / f"{OUT_NAME}_wage_growth_binary_panel.parquet", index=False)
 
 print("\nDone.")

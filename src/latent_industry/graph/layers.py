@@ -1,29 +1,21 @@
-"""layers.py — one row-stochastic transition matrix per independent evidence
-family. Each builder does exactly one thing: turn its own raw source into
-`transitions.row_normalize`'s input and call it. No relation ever competes
-against another relation here — that only happens later, in the supra-network
-(see multilayer_diffusion.py). No top-k, no magnitude threshold beyond
-clipping negative similarity to zero (a Markov chain can't carry negative
-transition mass) — see repulsion.py for where the negative NACE evidence and
-"officially excludes" pairs go instead.
+"""
+layers.py — one row-stochastic transition matrix per relational view.
 
-Six layers, one per independent evidence family (not one per NACE
-hierarchy level — those are correlated transformations of the same family,
-so nace_text spans all four levels in a single block-diagonal matrix):
+Each builder turns its raw source into (rows, cols, weights) and calls
+transitions.row_normalize. Views are not weighted against each other here,
+and there is no top-k or magnitude threshold; negative NACE similarity is
+clipped to zero (negative evidence is handled in repulsion.py).
 
-  labor       4d<->4d Neffke-Henning skill relatedness, within each SNI
-              version separately (SNI07/02/92 never mix directly here).
-  nace_text   cosine similarity between NACE description embeddings, at
-              every level (4d/3d/2d/section) in one matrix. Levels never
-              cross-connect, so this is block-diagonal by construction.
-  io          flow-relatedness between 2d hub nodes (blended SCB/Eurostat/
-              WIOD input-output tables).
-  hierarchy   4d<->3d<->2d<->section parent/child, both directions combined.
-  transition  SNI92<->02<->07 crosswalk, both directions combined. A
-              zero-cost identity correspondence ("this old code IS that new
-              code"), not a relatedness score.
-  ownership   4d<->4d common-ownership (same OrgNr) co-occurrence, within
-              each SNI version separately (2026-07-29).
+Views
+-----
+  labor       4d ↔ 4d labor relatedness (Neffke–Henning), within each SNI version
+  nace_text   cosine similarity of NACE description embeddings, at every level
+              (4d/3d/2d/section) and version; block-diagonal by level and version
+  io          input–output relatedness between 2d hub nodes, per version
+  hierarchy   4d ↔ 3d ↔ 2d ↔ section parent/child edges, within each version
+  transition  SNI92 ↔ SNI02 ↔ SNI07 correspondence (an identity mapping, not a
+              relatedness score)
+  ownership   4d ↔ 4d common-ownership relatedness, within each SNI version
 """
 
 from dataclasses import dataclass
@@ -43,10 +35,8 @@ class Layer:
     P: np.ndarray         # N x N row-stochastic transition matrix
     avail: np.ndarray     # N bool — which rows have outgoing mass in this layer *this run*
     domain: np.ndarray    # N bool — which nodes structurally belong to this layer, regardless
-                           # of whether they currently have any edges (used by
-                           # multilayer_diffusion.py to decide the supra-network's state space
-                           # and how many layers a node's interlayer budget splits across —
-                           # this is what replaces the old hand-maintained RELATION_NODE_MENU)
+                           # of whether they currently have any edges (the rows a training
+                           # target is evaluated on)
     edges: pd.DataFrame   # raw, pre-normalisation: src, dst, weight, type
 
 
@@ -69,14 +59,11 @@ def _mask_4d_all(ni: NodeIndex) -> np.ndarray:
 
 
 def _mask_hierarchy_all_versions(ni: NodeIndex) -> np.ndarray:
-    """Every 4d node (any version) plus every hub node (3d/2d/section, any
-    version) — the domain for nace_text and hierarchy (v7 §2). A single
-    combined mask across all three versions is safe even though hierarchy
-    edges never cross versions: each version's 4d codes only ever connect
-    to that SAME version's own hub nodes (build_hierarchy_layer loops per
-    version), so nothing here implies any cross-version mixing — this mask
-    only says which rows/columns the layer's P matrix has nonzero structure
-    in, not who connects to whom."""
+    """
+    Every 4d node and every hub node (3d/2d/section) of every version: the
+    domain of nace_text and hierarchy. Edges never cross versions; the mask
+    only marks which rows and columns carry structure.
+    """
     nt = ni.nodes["node_type"].values
     return np.isin(nt, ["4d", "3d", "2d", "section"])
 
@@ -109,16 +96,10 @@ def build_labor_layer(
 def build_ownership_layer(
     ni: NodeIndex, relatedness_file: str | Path = "ownership_relatedness.parquet"
 ) -> Layer:
-    """Within-version 4d<->4d phi edges from common-ownership co-occurrence
-    (2026-07-29 — see build_ownership_relatedness.py): two SNI codes both
-    worked under the same enterprise (OrgNr) in the same year are evidence
-    of a related-diversification link independent of labor or IO flow. Same
-    file convention as labor_relatedness.parquet (a `coding` column, one row
-    per unordered pair per version) and the same never-split-by-version
-    structure — build_expanded_layers (layer_diffusion.py) can split this
-    into ownership_SNI92/02/07 the same way it splits `labor`, if a future
-    diagnostic finds density/training-dynamics reasons to (v9 §... for
-    labor's own version of that split); nothing here requires it yet."""
+    """
+    Within-version 4d ↔ 4d edges from common-ownership relatedness
+    (ownership_relatedness.parquet; one row per unordered pair and version).
+    """
     path = _processed_path(relatedness_file)
     rows, cols, weights = [], [], []
     if path.exists():
@@ -206,15 +187,12 @@ def build_node_concept_groups(ni: NodeIndex) -> dict[int, int]:
 
 
 def build_hierarchy_layer(ni: NodeIndex) -> Layer:
-    """4d<->3d<->2d<->section parent/child, both directions combined into
-    one directed layer, built independently within EACH SNI version (v7 §2
-    — previously SNI07 only; SNI92/SNI02 4d codes had no hierarchy edge of
-    their own and reached this structure only indirectly through
-    `transition`). Climbing (child->parent) has weight 1 per edge, each
-    node has exactly one parent; descending (parent->child) mass splits
-    across however many children a hub has — a coarser-level signal really
-    is less specific per child than a direct edge would be. No edge ever
-    crosses versions here — that is `transition`'s job."""
+    """
+    4d ↔ 3d ↔ 2d ↔ section parent/child edges, both directions in one directed
+    layer, built within each SNI version. Climbing (child → parent) has weight 1
+    (each node has one parent); descending (parent → child) mass is split over
+    the children. No edge crosses versions (that is `transition`).
+    """
     rows, cols, weights = [], [], []
     for version in ("SNI07", "SNI02", "SNI92"):
         for code in ni.sni_4d[version]:
@@ -241,23 +219,20 @@ def build_hierarchy_layer(ni: NodeIndex) -> Layer:
 IO_RELATEDNESS_FILES_BY_VERSION: dict[str, str] = {
     "SNI07": "io_relatedness_SNI07.parquet",
     "SNI02": "io_relatedness_SNI02.parquet",
-    # No SNI92 entry: no IO source reaches back that far (2026-07-29 rewrite
-    # of build_input_output_relatedness.py — WIOD's earliest year, 1995, is
-    # already SNI02-vintage by classification regardless of calendar year).
+    # No SNI92 entry: no IO source covers SNI92 (WIOD's earliest year, 1995,
+    # is classified in the SNI02 vintage).
 }
 
 def build_io_layer(
     ni: NodeIndex,
     relatedness_files: dict[str, str | Path] | None = None,
 ) -> Layer:
-    """Flow-relatedness edges between 2d hub nodes, built independently per
-    SNI version (2026-07-29: `io` used to be SNI07-only — a single pooled
-    `io_relatedness.parquet` blended sources spanning two classification
-    vintages and a ~25-year window into one table. Now each version has its
-    own relatedness file, built from only the sources that are native to
-    that vintage (see build_input_output_relatedness.py), matching how
-    `labor` and `hierarchy` already keep versions separate. No edge ever
-    crosses versions here, same as those two."""
+    """
+    Input–output relatedness edges between 2d hub nodes, built per SNI version
+    from that version's own relatedness file (io_relatedness_SNI07.parquet,
+    io_relatedness_SNI02.parquet; there is no SNI92 source). No edge crosses
+    versions.
+    """
     relatedness_files = relatedness_files or IO_RELATEDNESS_FILES_BY_VERSION
     rows, cols, weights = [], [], []
     versions_with_data: list[str] = []
@@ -300,11 +275,12 @@ def _center_and_renormalize(vecs: np.ndarray, mean: np.ndarray) -> np.ndarray:
 
 
 def load_nace_embeddings(filename: str) -> dict | None:
-    """Load a precomputed NACE embeddings file (see build_nace_embeddings.py),
-    then mean-center each level before re-normalising — removes the shared
-    anisotropic direction that otherwise spreads a node's mass almost
-    uniformly across ~600 barely-distinguishable neighbours (see
-    docs/conceptual_audit.md's NACE negative edges finding for the measured before/after spread)."""
+    """
+    Load the precomputed NACE description embeddings (PROCESSED_DATA_DIR/
+    `filename`) and mean-centre each level before re-normalising. Centring
+    removes the shared anisotropic direction that otherwise makes most pairs
+    look similar.
+    """
     path = PROCESSED_DATA_DIR / filename
     if not path.exists():
         return None
@@ -325,22 +301,12 @@ _HUB_TEXT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def _encode_version_hub_embeddings(ni: NodeIndex, version: str, model) -> dict:
-    """v7 §2: SNI92/SNI02 have no NACE Rev.2 rich-text embeddings —
-    build_nace_embeddings.py's cached nace_embeddings_{tag}.npz is SNI07
-    only (that's the one version with full NACE Rev.2 documentation).
-    But `nace_level_texts`'s own fallback for a code with no NACE Rev.2
-    match is already just the plain SCB label (see that function's
-    docstring) — the exact text NodeIndex already loaded into
-    `sni_4d`/`hub_3d`/`hub_2d`/`hub_section` — so there is nothing richer
-    to lose here for these two versions. Directly encode that plain text
-    with the same lightweight, locally-cached sentence-transformer
-    P02_shared_geometry_reconstruction.py (formerly evaluate_embeddings.py)
-    already uses for hub-level fallback encoding,
-    then mean-center/renormalise exactly like `load_nace_embeddings` does
-    for the SNI07 OpenAI embeddings (same anisotropy-removal rationale,
-    not SNI07-specific). One small one-time cost at graph-build time
-    (~1,600 short texts total across both versions), not per training
-    epoch."""
+    """
+    Embeddings of SNI92/SNI02 nodes, which have no NACE Rev. 2 text: their
+    plain SCB labels (as loaded by NodeIndex) are encoded with a local
+    sentence-transformer (all-MiniLM-L6-v2) and mean-centred/re-normalised
+    like load_nace_embeddings.
+    """
     level_lookups = {
         "class": ni.sni_4d[version],
         "group": ni.hub_3d[version],
@@ -382,10 +348,10 @@ def _align_codes(nace_emb: dict, level: str, node_type: str, version: str,
 
 def _level_pairs(nids: list[int], vecs: np.ndarray, sharpen: float
                   ) -> tuple[tuple[list, list, list], tuple[list, list, list]]:
-    """All pairs at one NACE level, split by sign. Positive part (sharpened,
-    then row-normalised elsewhere) feeds the layer; negative part is kept
-    only as a diagnostic (see module docstring's "signed evidence" note —
-    repulsion evidence comes from verified excludes pairs, not this)."""
+    """
+    All pairs at one NACE level, split by sign. The positive part feeds the
+    layer; the negative part is kept as a diagnostic only.
+    """
     if len(nids) < 2:
         return ([], [], []), ([], [], [])
     sims = vecs @ vecs.T
@@ -404,21 +370,15 @@ def _level_pairs(nids: list[int], vecs: np.ndarray, sharpen: float
 
 def build_nace_layer(ni: NodeIndex, nace_embedding_file: str, sharpen: float = 1.0
                       ) -> tuple[Layer, NaceEmbeddingContext]:
-    """cosine-similarity edges between NACE description embeddings, at every
-    level and every SNI version (v7 §2 — previously SNI07 only) in one
-    matrix — levels AND versions never cross-connect, so this is
-    block-diagonal by construction, not a per-level/per-version relation to
-    be weighted separately (see module docstring). SNI92/SNI02 use a
-    lightweight locally-encoded fallback instead of the cached SNI07-only
-    NACE Rev.2 embeddings — see `_encode_version_hub_embeddings`.
+    """
+    Cosine-similarity edges between NACE description embeddings at every level
+    and every SNI version, in one block-diagonal matrix (levels and versions
+    never connect). SNI07 uses the precomputed NACE Rev. 2 embeddings; SNI92 and
+    SNI02 use _encode_version_hub_embeddings.
 
-    `sharpen` (default 1.0 = no-op): raw positive weight -> weight**sharpen
-    before row-normalising, applied uniformly across all levels. Exists
-    because NACE cosine similarity is naturally much flatter than flow data
-    (labor/io) — short official descriptions share enough generic
-    vocabulary that most pairs land around sim~0.2-0.3 regardless of real
-    relatedness. This is local to this one layer because it's the one
-    family that actually needs it; nothing else in the pipeline does.
+    `sharpen` (default 1.0 = off) raises positive weights to that power before
+    row-normalising, to counter how flat description similarity is compared
+    with flow-based relatedness.
     """
     domain = _mask_hierarchy_all_versions(ni)
     nace_emb = load_nace_embeddings(nace_embedding_file)

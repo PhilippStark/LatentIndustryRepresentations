@@ -1,29 +1,14 @@
-"""operator_embedding.py — Phase 5/6 glue. Retain `Z` only, discard every
-`M_l`. Export L2-normalised rows in the exact `{sni07, sni02, sni92}` split
-and `.npz` schema `sentence_embedding.embed_and_save` already produces
-(math doc §6) — same file names too (`embeddings_sni07.npz` etc.), so this
-is a byte-for-byte-schema drop-in for either regime. (`_shared_eval_context.py`'s
-(the P02/P03 eval scripts' shared setup module, formerly part of
-`evaluate_embeddings.py`) `load_or_encode` looks up "sni07_4d" internally
-but falls back to this plain "sni07" name — see its own docstring for why;
-that fallback is what lets both regimes' caches be found without this file
-needing to know that module's internal label convention.)
+"""
+operator_embedding.py — hub aggregation and export of the trained embedding Z.
 
-Also exports the SNI07 hierarchy-hub levels (3d/2d/section), under the
-exact labels P02_shared_geometry_reconstruction.py looks up for them
-("sni07_3d"/"sni07_2d"/"sni07_section" — no legacy alias needed, the
-sentence-transformer regime never caches these at all).
-
-v7 §1.2: hub rows are no longer free parameters read straight out of `Z` —
-`build_hub_aggregation_matrix` makes each hub row a FUNCTION of its 4d-SNI07
-descendants (`h_a = normalize(mean_{i in D(a)} z_i)`), computed here (and,
-during training, in operator_trainer.train_joint) rather than stored. This
-is what gives hub nodes real gradient by construction (see the design doc
-§4 and v7 §1.2) instead of relying on `hierarchy`/`nace_text` targets to
-pull on them; without this, P02_shared_geometry_reconstruction.py would either fall back to
-encoding hub text with a plain sentence-transformer, or (post-fix, pre-this
-change) export a hub row that was still just an independently-trained free
-parameter, decoupled from the 4d rows it's supposed to summarise.
+- build_hub_aggregation_matrix: hub rows (3d/2d/section) are the mean of
+  their 4-digit descendants, h_a = normalise(mean_{i ∈ D(a)} z_i), so hubs
+  are functions of the 4-digit codes rather than free parameters.
+- export_embeddings: L2-normalised 4-digit embeddings per version
+  (embeddings_sni07.npz, embeddings_sni02.npz, embeddings_sni92.npz) and the
+  SNI07 hub embeddings (embeddings_sni07_{3d,2d,section}.npz), each with
+  keys `embeddings` and `codes`.
+- export_hub_coherence: per-hub norm of the pre-normalisation mean vector.
 """
 
 from pathlib import Path
@@ -41,27 +26,15 @@ _HUB_NODE_TYPES = ("3d", "2d", "section")
 
 
 def build_hub_aggregation_matrix(ni: NodeIndex) -> torch.Tensor:
-    """M, N x N: `M @ Z` leaves every 4d row exactly as it was (M is the
-    identity there) and turns every hub row (3d/2d/section) into the FLAT
-    mean over its 4d descendants of the SAME version — `u_a = mean_{i in
-    D(a)} z_i`, not yet normalised (CosineObservationModel's own
-    `F.normalize` call handles that uniformly for leaf and hub rows alike,
-    which is also where the epsilon-stabilised denominator the design note
-    asks for comes from, for free).
+    """
+    M (N x N): M @ Z leaves every 4d row unchanged (identity) and turns every
+    hub row (3d/2d/section) into the mean of its 4d descendants of the same
+    version, u_a = mean_{i ∈ D(a)} z_i (normalised later by
+    CosineObservationModel).
 
-    Flat aggregation over 4d descendants, NOT recursive over immediate
-    children (v7 §1.2 design note): a code in a 2-member 3d group would
-    otherwise count several times more toward its division's mean than one
-    in a 10-member group.
-
-    Version-generic, not hard-coded to SNI07: it looks up each hub's
-    descendants via `ni.get(...)` for whatever version that hub row actually
-    is. Only SNI07 hub nodes exist in `NodeIndex` today (extending
-    nace_text/hierarchy to SNI92/SNI02 hub levels is v7 §2, explicitly
-    deferred), so every non-SNI07 lookup here simply finds nothing and that
-    hub type/version combination never arises as a row to fill — this
-    function does not need to change when that coverage gap is eventually
-    closed.
+    Aggregation is flat over 4d descendants, not recursive over children, so a
+    code in a small 3-digit group does not weigh more in its division's mean
+    than a code in a large group. Descendants are looked up per hub version.
     """
     nodes = ni.nodes
     node_type = nodes["node_type"].values
@@ -101,10 +74,11 @@ def build_hub_aggregation_matrix(ni: NodeIndex) -> torch.Tensor:
 
 
 def export_hub_coherence(Z: torch.Tensor, ni: NodeIndex, hub_aggregation: torch.Tensor, out_path: Path) -> None:
-    """v7 §4.5: log ‖u_a‖ — the PRE-normalisation mean vector's norm — per
-    hub. Normalised away by the aggregation above, but interpretable on its
-    own: how internally coherent a division/group/section is in the learned
-    space, independent of the loss."""
+    """
+    Per hub, ||u_a||: the norm of the mean of its descendants' unit vectors,
+    a measure of how internally coherent a section, division or group is in
+    the learned space. Written to hub_coherence.csv.
+    """
     nodes = ni.nodes
     node_type = nodes["node_type"].values
     with torch.no_grad():

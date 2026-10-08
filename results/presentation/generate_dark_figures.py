@@ -1,48 +1,19 @@
 """
 generate_dark_figures.py
-==========================
-Dark-mode (black-background) re-renders of six main-text paper figures, for
-slide/presentation use:
+========================
+Dark-background versions of six paper figures for presentations
+(result1_source_complementarity, result3_opportunity_space,
+result4_single_source_density_comparison, result4_entry, result4_exit,
+result4_startup). Replots from cached outputs; only the t-SNE of the
+shared_cosine_v16 embeddings is refit (seconds).
 
-  result1_source_complementarity.png
-  result3_opportunity_space.png
-  result4_single_source_density_comparison.png
-  result4_entry.png
-  result4_exit.png
-  result4_startup.png
-
-This is a REPLOT, not a recompute: every number/coordinate drawn here comes
-from data other scripts already computed and cached to disk (CSVs, a
-parquet panel, an .npz embedding). Nothing here reloads the raw SCB
-microdata or reruns a regression/t-SNE-on-the-full-corpus/training pass —
-the one exception is the Result-3 t-SNE, which is refit here (same
-recipe/seed as P03_emergent_structure.py) because only the trained 64d
-embeddings themselves are cached, not the 2D layout; refitting t-SNE on
-~1,800 64d vectors takes seconds, not an HPC job.
-
-Data sources (all already on disk before this script runs):
-  Result 1  results/paper/result1_source_complementarity_{a,b,d,e}_matrix.csv
-            (written by build_paper_tables.py from P01_source_complementarity.py)
-  Result 3  {EMBEDDING_DIR}/shared_cosine_v16/embeddings_sni{07,02,92}.npz
-            (the run's own trained embeddings; t-SNE refit here)
-  Result 4  results/regional_{entry,exit,startup_entry}/shared_cosine_v16_sepFE_{summary,year_coefs}.csv
-            + {PROCESSED_DATA_DIR}/downstream_outcomes/{entry,exit,startup_entry}/shared_cosine_v16_sepFE_panel.parquet
-            (P04_entry.py/_exit.py/_startup_entry.py's own --from-cache inputs —
-            "_sepFE" is the separate-muni+year-FE spec that promote_sepFE_to_baseline.py
-            already promoted to be the published baseline; identical to what
-            results/paper/result4_{entry,exit,startup}.png were built from)
-  Result 4  {LUNARC single-source-density robustness dir}/single_source_density_comparison_sepFE.csv
-  (single-source density)  (R01_single_source_density.py's own cached comparison table)
-
-Styling: one dark rcParams block applied globally (this script only ever
-produces these six figures, so there's no light-mode figure to protect),
-plus a light foreground constant (FG) substituted for every hardcoded
-"black" reference the original light-mode plotting code used for
-zero-lines / marker edges / annotation text — those are invisible against
-a black background otherwise. Heatmap/box colormaps themselves (RdBu_r,
-period color cycle, section hues) are unchanged except where a hue was
-tuned dark-for-light-background (Result 3's section colors: value bumped
-up so they read as bright dots on black instead of muddy dark ones).
+Inputs
+------
+  results/paper/result1_source_complementarity_{a,b,d,e}_matrix.csv
+  EMBEDDING_DIR/shared_cosine_v16/embeddings_sni{07,02,92}.npz
+  results/regional_{entry,exit,startup_entry}/shared_cosine_v16_{summary,year_coefs}.csv
+  PROCESSED_DATA_DIR/downstream_outcomes/{entry,exit,startup_entry}/shared_cosine_v16_panel.parquet
+  single_source_density_comparison.csv (R01_single_source_density.py)
 
 Usage
 -----
@@ -290,7 +261,7 @@ def build_result3() -> None:
 # Result 4 — entry / exit / startup (density-effect summary, from cache)
 # ═══════════════════════════════════════════════════════════════════════════
 
-OUT_NAME = f"{RUN_NAME}_sepFE"  # promote_sepFE_to_baseline.py's published baseline
+OUT_NAME = RUN_NAME  # main specification (municipality×year + industry FE)
 
 RESULT4_OUTCOMES = [
     dict(name="entry", results_subdir="regional_entry", processed_subdir="entry",
@@ -433,7 +404,7 @@ def build_result4_outcomes() -> None:
                 "partial_r": float(row[f"{outcome}_r"]),
                 "pct_of_baseline": float(row[f"{outcome}_pct_of_baseline"]),
                 "rate": float(row[f"{outcome}_rate"]),
-                "ci_low": coef - 1.96 * se, "ci_high": coef + 1.96 * se,
+                "ci_low": float(row[f"{outcome}_ci_low"]), "ci_high": float(row[f"{outcome}_ci_high"]),
             }
 
         plot_density_effect_summary_dark(
@@ -459,7 +430,7 @@ def build_result4_single_source_density() -> None:
     print("Result 4 — single-source density robustness boxplot (dark)")
     print("=" * 70)
 
-    csv_path = LUNARC_SINGLE_SOURCE_DIR / "single_source_density_comparison_sepFE.csv"
+    csv_path = LUNARC_SINGLE_SOURCE_DIR / "single_source_density_comparison.csv"
     if not csv_path.exists():
         print(f"  SKIPPED — {csv_path} not found.")
         return

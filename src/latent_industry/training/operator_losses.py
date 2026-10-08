@@ -1,25 +1,16 @@
-"""operator_losses.py — Phase 4 of the operator-preserving regime (math doc
-§5). Two families, not three: `kl_loss`/`cross_entropy_loss` share one
-internal computation (`_categorical_nll`) and differ only in whether the
-target's own entropy H(p) is added back for the reported value — since
-`H(p)` is a constant w.r.t. the parameters, ∇_θ KL(p‖q) = ∇_θ CE(p,q)
-exactly, not just approximately. `mse_loss` is the one genuinely different
-code path (needs Q = softmax(logits) explicitly).
+"""
+operator_losses.py — losses between a target and the observation model's logits.
 
-Statistical framing (math doc §5): `kl`/`ce` are both the **categorical-
-likelihood** observation model (labor, nace_text, io, hierarchy,
-transition); `mse` is the **Gaussian-likelihood** alternative (io only,
-behind a config flag) — a statement about what generative process each
-economic mechanism is assumed to look like, not an ad hoc menu of loss
-functions.
+kl_loss and cross_entropy_loss share one computation (_categorical_nll) and
+differ only in whether the target entropy H(p) is added back to the reported
+value; their gradients are identical. Both are categorical-likelihood
+observation models. mse_loss (Gaussian likelihood on softmax probabilities)
+is an alternative for io. ordinal_margin_loss enforces the hierarchy tier
+ordering.
 
-`target` and `active_mask` passed in here are already domain-restricted
-(n_domain x n_domain / n_domain) with the diagonal excluded and the row
-renormalised over j != i — see operator_trainer.py's
-`restrict_to_domain`, which does that once per layer rather than every
-epoch. `ordinal_margin_loss` (v7 §1.4) is the exception: its `target` is a
-tier-rank matrix, not a probability distribution, so `restrict_to_domain`
-skips the renormalisation step for it — see that function's docstring.
+Targets and active masks arrive domain-restricted, with the diagonal
+excluded and rows renormalised over j ≠ i (operator_trainer.restrict_to_domain);
+ordinal targets are tier-rank matrices and are not renormalised.
 """
 
 import torch
@@ -27,13 +18,10 @@ import torch.nn.functional as F
 
 
 def _categorical_nll(logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor) -> torch.Tensor:
-    """mean_{i active} -sum_j target(i,j) * log_softmax(logits)(i,j).
-    `logits`'s diagonal is -inf (self excluded, see BilinearObservationModel);
-    `target`'s diagonal is exactly 0 for the same reason, so the two
-    zero/-inf positions must line up — otherwise 0 * log(0) would evaluate
-    to NaN under IEEE float rules even though the intended contribution is
-    zero. `log_Q` is patched to 0 wherever the logit was masked to -inf so
-    that 0 (target) * 0 (patched log-prob) stays exactly 0.
+    """
+    mean over active rows i of −Σ_j target(i,j) · log_softmax(logits)(i,j).
+    The logits' diagonal is −inf and the target's diagonal is 0; log-probabilities
+    are set to 0 where the logit is −inf, so 0 · log 0 contributes 0 rather than NaN.
     """
     log_Q = torch.log_softmax(logits, dim=-1)
     log_Q = torch.where(torch.isneginf(logits), torch.zeros_like(log_Q), log_Q)
@@ -63,30 +51,20 @@ _ORDINAL_TIERS = (1, 2, 3, 4)
 def ordinal_margin_loss(
     logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor, margin: float = 0.05,
 ) -> torch.Tensor:
-    """v7 §1.4: `cos(i, same_3d) > cos(i, same_2d) > cos(i, same_section) >
-    cos(i, other)` — an ordinal constraint on 4d-4d hierarchy relations,
-    replacing `hierarchy_t1`'s old categorical (softmax-over-domain) target,
-    which stops carrying information once §1.2 makes a hub row a function of
-    its own children (a 4d code is then part of its own hub's definition by
-    construction). This is what `A_treedist_rho` already measures, so target
-    and metric finally align.
+    """
+    Ordinal hierarchy constraint among 4-digit codes:
+    cos(i, same 3-digit group) > cos(i, same division) > cos(i, same section)
+    > cos(i, other section).
 
-    `target` here is NOT a probability distribution — it's a tier-rank
-    matrix, values in `{0, 1, 2, 3, 4}` (`0` = self/undefined, off-diagonal
-    values `1..4` are `_ORDINAL_TIERS`, nearest to farthest). `logits` are
-    used directly as raw similarity scores (`cos/tau`, already computed by
-    `CosineObservationModel`) — NOT log-softmaxed, since this isn't a
-    distribution-matching loss; the `-inf` diagonal `logits` never enters
-    any tier's mean because the diagonal's `target` value (`0`) is never one
-    of `_ORDINAL_TIERS`.
+    `target` is a tier-rank matrix with values in {0, 1, 2, 3, 4} (0 = self /
+    undefined; 1–4 = _ORDINAL_TIERS from nearest to farthest). `logits` are used
+    directly as similarity scores (cos / tau), not log-softmaxed.
 
-    Per active row: mean similarity within each tier present in that row,
-    then a hinge on every pair of ADJACENT tiers both present —
-    `relu(margin + mean(tier_{k+1}) - mean(tier_k))` for `k` in
-    `(same_3d, same_2d), (same_2d, same_section), (same_section, other)` —
-    averaged over the (up to 3) present adjacent pairs, then over active
-    rows. A row with fewer than two tiers represented (no adjacent pair to
-    compare) contributes exactly zero, not a crash."""
+    Per active row: mean similarity within each tier present, then
+    relu(margin + mean(tier_{k+1}) − mean(tier_k)) for every pair of adjacent
+    tiers that are both present, averaged over pairs and then over active rows.
+    Rows with fewer than two tiers contribute zero.
+    """
     means, counts = [], []
     for t in _ORDINAL_TIERS:
         mask_t = target == t

@@ -1,52 +1,27 @@
 """
-build_ownership_relatedness.py — relatedness between SNI industries revealed
-by common ownership: how often two industries appear together under the
-same enterprise (OrgNr) in the same year.
+build_ownership_relatedness.py
+==============================
+Ownership relatedness between 4-digit industries: how often two industries
+are active under the same enterprise (OrgNr) in the same year (related
+diversification, Teece 1980). Requires the restricted SCB individual-level
+register panel.
 
-Rationale
----------
-Every other relatedness family here is either a worker-transition flow
-(labor) or a national accounts flow (io) — neither captures the diversification
-channel a firm's own portfolio reveals: a conglomerate active in both
-industry i and industry j is direct revealed evidence those two activities
-sit together under one ownership/management structure, independent of
-whether workers or intermediate goods ever flow between them (Teece 1980;
-this is the same logic behind Neffke & Henning's later firm-coherence work
-and the general "related diversification" literature).
+Co-occurrence
+-------------
+For every (year, OrgNr), the set of distinct industry codes of its employees
+is taken; each pair of codes in the set co-occurs once, irrespective of
+headcount. Enterprises with more than MAX_CODES_PER_ORG (30) codes are
+skipped. Counts are pooled over the years of each classification period
+(SNI92: 1990–2001, SNI02: 2002–2006, SNI07: 2007–2019), never across periods,
+and pairs with fewer than MIN_OWNERSHIP_COUNT (3) co-occurrences are dropped.
+Relatedness is the symmetric flow-strength measure
+latent_industry.common.flow_metrics.symmetric_flow_phi.
 
-The raw individual-level panel (same source as build_labor_relatedness.py)
-has an `OrgNr` column — Sweden's enterprise identifier. It is NOT stable
-across years (an OrgNr can be reused/reassigned over time), but it IS exact
-within a single year, which is all this needs: for each (Year, OrgNr), take
-the SET of distinct SNI codes worked under that enterprise that year. Two
-codes "co-occur" once per (Year, OrgNr) where both are present, regardless
-of how many employees are under each — headcount-weighting would let one
-huge multi-division employer dominate the whole measure; a plain co-occurrence
-count, corrected by each code's own base rate via `symmetric_flow_phi` (the
-same formula build_input_output_relatedness.py and this project's IO/labor
-layers already use), is the simpler and more defensible choice here.
-
-Version handling — same rule as labor (see build_labor_relatedness.py):
-`Sni` already holds the period-appropriate code per row, and OrgNr-year
-co-occurrence is only ever counted WITHIN one year, so it is automatically
-within one classification vintage. Pooling happens across years WITHIN a
-vintage (SNI92: 1990-2001, SNI02: 2002-2006, SNI07: 2007-2019), never across
-a reclassification boundary — an OrgNr's code identity across a
-reclassification year is a coding artifact, not a real ownership fact.
-
-All flows are also kept year-tagged (not pooled away first) for future
-temporal-embedding work, same as build_input_output_relatedness.py's
-io_flows_by_year.parquet (2026-07-29).
-
-Output
-------
-  <LUNARC_DATA_ROOT>/processed/ownership_relatedness.parquet
-    columns: sni_from [str], sni_to [str], phi [float], coding [str]
-    coding ∈ {SNI07, SNI02, SNI92}. One row per unordered pair per period
-    (sni_from < sni_to), same convention as labor_relatedness.parquet.
-
-  <LUNARC_DATA_ROOT>/processed/ownership_flows_by_year.parquet
-    columns: coding, year, sni_from, sni_to, count — NOT yet pooled across years.
+Outputs (<LATENT_DATA_ROOT>/processed/)
+---------------------------------------
+  ownership_relatedness.parquet    sni_from, sni_to, phi, coding (one row per
+                                   unordered pair and period, sni_from < sni_to)
+  ownership_flows_by_year.parquet  coding, year, sni_from, sni_to, count
 
 Usage
 -----

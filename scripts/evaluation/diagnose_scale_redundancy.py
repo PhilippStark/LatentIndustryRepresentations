@@ -1,21 +1,16 @@
-"""diagnose_scale_redundancy.py — the one diagnostic to run BEFORE building
-the shared-cosine multi-target training pipeline (see the design note this
-answers): if a layer's own diffusion targets at t in {1,2,4,8} turn out to
-be highly correlated with each other, treating each scale as a separate
-training target adds little real information and the retrieval/consistency
-ceiling won't move just from splitting one weighted-average target into
-several near-duplicate ones.
-
-Computes each layer's own P_layer^t independently per scale (build_diffusion,
-no weighting) and reports row-wise Spearman rho + cosine similarity between
-every pair of scales, restricted to active rows and each layer's own domain
-— exactly the comparison the "many per-layer targets" proposal's risk
-section calls for, and cheap enough to run directly (dense matrix powers up
-to t=8 on ~1,000-2,000 node domains, no training).
+"""
+diagnose_scale_redundancy.py
+============================
+Checks whether a view's diffusion targets at different scales t ∈ {1, 2, 4, 8}
+carry distinct information. For every view, P^t is computed per scale and
+the row-wise Spearman rho and cosine similarity between every pair of scales
+are reported (active rows within the view's domain). Highly redundant scales
+add little as separate training targets; this diagnostic motivates the
+default scales in build_layer_diffusion_targets.py.
 
 Usage
 -----
-  python scripts/evaluation/diagnose_scale_redundancy.py --name multilayer_v1
+  python scripts/evaluation/diagnose_scale_redundancy.py --name layers_v1
 """
 
 import argparse

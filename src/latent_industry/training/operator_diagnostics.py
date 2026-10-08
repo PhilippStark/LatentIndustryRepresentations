@@ -1,21 +1,14 @@
-"""operator_diagnostics.py — Phase 7 of the operator-preserving regime
-(docs/operator_preserving_implementation_plan.md). Answers "does the
-objective reconstruct the operators well" — a different question from
-Phase 6's P02_shared_geometry_reconstruction.py / P03_emergent_structure.py
-(formerly evaluate_embeddings.py), which check whether the resulting
-*space* (plain cosine(Z_i, Z_j), with every M_l discarded) looks good by
-the existing economic-consistency checks. A layer whose *training* loss
-converges can still fail this: `M_l` is free to absorb a rotation/scaling
-that makes the bilinear score `z_i^T M_l z_j` match the target well without
-`Z`'s own dot-product geometry inheriting that fit — this module measures
-the bilinear fit directly, before `M_l` is thrown away.
+"""
+operator_diagnostics.py — training-state checkpoint and reconstruction diagnostics.
 
-Needs `Z` and every `M_l` still around, which `operator_embedding.py`'s
-exported product deliberately does not keep (math doc §6 — "discard every
-M_l"). `save_training_state`/`load_training_state` here are a second,
-diagnostic-only artifact (`operator_state.pt`), so Phase 7 can be run as
-its own script against an already-trained run instead of needing to keep
-a training process alive or retrain from scratch.
+- save_training_state / load_training_state: Z plus every target's
+  observation model (operator_state.pt in the run directory).
+- layer_reconstruction_report: per-row Spearman rho, cosine similarity and
+  top-k overlap between each target and the model's predicted distribution.
+- per_family_reference_metric: one cheap reference metric per family,
+  computed from Z and the relatedness files (Spearman rho against labor /
+  IO relatedness, hierarchy tree-distance rho, or crosswalk MRR for
+  transition); used during training with --eval-every.
 """
 
 from pathlib import Path
@@ -41,10 +34,10 @@ _KIND_BY_CLASS = {cls: kind for kind, cls in OBSERVATION_MODEL_REGISTRY.items()}
 
 def save_training_state(Z: torch.Tensor, observation_models: dict[str, LayerObservationModel],
                          embedding_dim: int, out_path: Path) -> None:
-    """Diagnostic-only checkpoint: Z plus every layer's observation model
-    (whichever kind — bilinear, mlp, a future Phase 8 subclass — mixed
-    across layers is fine). Not part of the exported embedding product
-    (embeddings_*.npz) — only Phase 7 reads it."""
+    """
+    Checkpoint of Z and every target's observation model (operator_state.pt).
+    Not part of the exported embeddings.
+    """
     state = {
         "embedding_dim": embedding_dim,
         "Z": Z.detach().cpu(),
@@ -130,30 +123,20 @@ def layer_reconstruction_report(
     }
 
 
-# ── v7 §4.2: per-family loss <-> reference-metric correlation ─────────────
+# ── Per-family loss <-> reference-metric correlation ──────────────────────
 #
-# "Negative or near-zero means the target does not point at the object" —
-# how the io lift bug was originally found (io_t4's loss improving while
-# I_io_rho fell 0.598 -> 0.239). Made a standing check here instead of a
-# one-off manual diagnosis: train_shared_cosine_embedding.py's --eval-every
-# calls per_family_reference_metric periodically and correlates the result
-# against that family's own training loss trajectory.
-#
-# Deliberately NOT a re-implementation of P02_shared_geometry_reconstruction.py's
-# / P03_emergent_structure.py's (formerly evaluate_embeddings.py's) full
-# metric suite: no sentence-transformer, no text re-encoding — every metric
-# here reads directly from the same on-disk relatedness sources training
-# itself was built from (labor_relatedness.parquet, io_relatedness.parquet,
-# code-prefix hierarchy tiers, crosswalk CSVs), so this stays cheap enough
-# to run every few dozen epochs without materially slowing training down.
+# train_shared_cosine_embedding.py --eval-every calls
+# per_family_reference_metric periodically and correlates it with the
+# family's training loss: the two should move in opposite directions; a
+# non-negative correlation means the loss improves without the metric.
+# The metrics read the relatedness sources directly (no text encoder), so
+# they are cheap enough to compute during training.
 
 def _labor_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
-    """Batches every pair's cosine similarity into ONE tensor op per version
-    (`Z_norm[s_idx] * Z_norm[t_idx]).sum(-1)`) and moves to CPU exactly once
-    — not per-row `.item()` calls, which force a host-device sync on every
-    single one of a parquet file's rows (potentially thousands) when `Z` is
-    a CUDA tensor. Same values as the naive per-row loop, just without the
-    per-row round-trip."""
+    """
+    Spearman rho between cosine similarity and labor relatedness, per version
+    (pairs evaluated in one batched tensor operation).
+    """
     path = PROCESSED_DATA_DIR / "labor_relatedness.parquet"
     if not path.exists():
         return None
@@ -180,8 +163,10 @@ def _labor_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
 
 
 def _io_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
-    """Same batching as `_labor_reference_metric` — one tensor op, one
-    host-device sync, not one per pair."""
+    """
+    Spearman rho between cosine similarity of the 2-digit hub embeddings and IO
+    relatedness (one batched tensor operation).
+    """
     path = PROCESSED_DATA_DIR / "io_relatedness_SNI07.parquet"
     if not path.exists():
         return None
@@ -206,10 +191,10 @@ def _io_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
 
 
 def _hierarchy_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
-    """Shared by both "hierarchy" and "nace_text" families — same
-    tree-distance-style rho `P03_emergent_structure.py`'s (formerly
-    `evaluate_embeddings.py`'s) `A_treedist_rho` computes, but from
-    code-prefix tiers directly (no text model)."""
+    """
+    Spearman rho between cosine distance and hierarchy tree distance from
+    code-prefix tiers; used for both the "hierarchy" and "nace_text" families.
+    """
     tier, domain = build_hierarchy_ordinal_tiers(ni)
     idx = np.nonzero(domain)[0]
     if len(idx) < 2:
@@ -225,11 +210,10 @@ def _hierarchy_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
 
 
 def _transition_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
-    """Quick crosswalk MRR-style check, one per crosswalk pair
-    (SNI92<->SNI02, SNI02<->SNI07), averaged. ONE matmul + ONE host-device
-    sync per crosswalk pair (every source row's similarities against every
-    candidate, batched), not one per source row — the ranking itself is
-    plain numpy after that single sync."""
+    """
+    Crosswalk MRR for SNI92 ↔ SNI02 and SNI02 ↔ SNI07, averaged (one batched
+    similarity computation per pair).
+    """
     Z_norm = F.normalize(Z.detach(), p=2, dim=-1)
     mrrs = []
     for csv_name, old_ver, new_ver, as_int in CROSSWALK_CSVS:

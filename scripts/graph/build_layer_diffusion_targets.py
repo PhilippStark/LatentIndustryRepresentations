@@ -1,54 +1,31 @@
-"""build_layer_diffusion_targets.py — per-(layer, t) diffusion targets for
-the shared-cosine training regime. Reads the stage-1 layer cache
-(build_layer_transition_matrices.py) and keeps every (layer, t) power
-P_l^(t) as its own separate training target — see
-src/latent_industry/graph/layer_diffusion.build_layer_diffusion_targets_expanded.
-No supra-network, no coupling parameter, no cross-layer mixing, no
-weight-averaging across scales (that earlier regime is archived).
+"""
+build_layer_diffusion_targets.py
+================================
+Stage 2 of the graph pipeline: turns each relational view's transition
+matrix P_l (from build_layer_transition_matrices.py) into multi-scale
+diffusion targets P_l^(t), one separate training target per (view, t)
+(src/latent_industry/graph/layer_diffusion.build_layer_diffusion_targets_expanded).
+Views are never mixed or averaged across scales.
 
-Usage
------
-  python scripts/graph/build_layer_diffusion_targets.py --name multilayer_v1
-  python scripts/graph/build_layer_diffusion_targets.py --name multilayer_v1 --scales 1 2 4
-  python scripts/graph/build_layer_diffusion_targets.py --name multilayer_v1 --scales-labor 1
+Scales
+------
+  --scales                 t values for every view without its own override
+                           (default EXPANDED_DEFAULT_SCALES = (1, 4))
+  --scales-<view>          override for one view; labor is split by version
+                           (labor_SNI92 / labor_SNI02 / labor_SNI07) and
+                           --scales-labor applies to all three
+  transition               split into transition_SNI92_SNI02 and
+                           transition_SNI02_SNI07, fixed at t = 1 (override with
+                           --scales-transition-92-02 / --scales-transition-02-07)
+  io                       native 2-digit layer, fixed at t = 1 (not diffused)
+  ownership                EXPANDED_DEFAULT_SCALES = (1, 4)
 
-`--scales` sets which `t` values each layer gets, defaulting to
-`EXPANDED_DEFAULT_SCALES=(1,4)` per diagnose_scale_redundancy.py's finding
-that t=2/4/8 are highly mutually redundant for every layer while t=1 is not.
-`--scales-<layer>` overrides it for one layer. `--expanded` is accepted and
-ignored (this is the only mode).
+Output: <LATENT_DATA_ROOT>/processed/layer_diffusion_expanded_{name}.npz
 
-`transition` is always split into
-`transition_SNI92_SNI02`/`transition_SNI02_SNI07` (see
-build_transition_pair_layers) and pinned to t=1 only — `--scales-transition`
-is ignored (a warning is printed if passed); use
-`--scales-transition-92-02`/`--scales-transition-02-07` instead if you need
-to override that pin for an experiment.
-
-`labor` is always split into `labor_SNI92`/
-`labor_SNI02`/`labor_SNI07` (see build_labor_version_layers) — unlike
-`transition`, `--scales-labor` (v7 gap fix) DOES propagate to all three
-split names uniformly (there's no per-version pin to work around here,
-just the split itself), so `--scales-labor 1` concentrates every version's
-entire budget on t=1 as expected. Before this fix, `--scales-labor` was
-silently ignored under `--expanded`: the override was keyed by `"labor"`,
-but the expanded loop looks targets up by `"labor_SNI92"` etc, so it never
-matched and every version silently fell back to `EXPANDED_DEFAULT_SCALES`.
-
-`io` uses its NATIVE 2d-hub layer (NOT lifted to 4d —
-`lift_io_layer` is not called), pinned to
-`IO_NATIVE_SCALES=(1,)`, i.e. raw `io_relatedness.parquet`, undiffused.
-Root-caused 2026-07-27: `P02_shared_geometry_reconstruction.py`'s
-(formerly `evaluate_embeddings.py`'s) `I_io_rho` checks the
-2d-hub embeddings directly, which the OLD lifted-to-4d `io_t1`/`io_t4`
-targets never touched at all (their domain was 4d-SNI07-only) — training
-harder on the lifted target could lower its own loss while `I_io_rho` got
-worse, since the two were never optimising the same rows. `--scales-io` is
-still accepted but ignored (warning printed if passed —
-diffusing the native layer further would defeat the point of this fix).
-
-Output: layer_diffusion_expanded_{name}.npz — one P_l^(t)/domain/family
-per (layer, t) pair.
+Usage (main run; 24 targets)
+----------------------------
+  python scripts/graph/build_layer_diffusion_targets.py --name layers_v1 \
+      --scales 1 2 4 --scales-labor 1 2 4
 """
 
 import argparse
@@ -130,11 +107,8 @@ if args.scales_transition_92_02 is not None:
     expanded_layer_scales["transition_SNI92_SNI02"] = tuple(args.scales_transition_92_02)
 if args.scales_transition_02_07 is not None:
     expanded_layer_scales["transition_SNI02_SNI07"] = tuple(args.scales_transition_02_07)
-# v7 gap fix: --scales-labor was silently dropped —
-# build_layer_diffusion_targets_expanded looks targets up by
-# "labor_SNI92"/"labor_SNI02"/"labor_SNI07" (the per-version split), not
-# "labor", so the override never matched and every version always fell
-# back to EXPANDED_DEFAULT_SCALES regardless of what was passed here.
+# labor targets are keyed per version (labor_SNI92/labor_SNI02/labor_SNI07),
+# so --scales-labor is applied to each of them.
 if args.scales_labor is not None:
     for _ver in ("SNI92", "SNI02", "SNI07"):
         expanded_layer_scales[f"labor_{_ver}"] = tuple(args.scales_labor)

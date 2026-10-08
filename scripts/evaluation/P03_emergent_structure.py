@@ -1,58 +1,33 @@
 """
 P03_emergent_structure.py
-===========================
-Result 3 (docs/Embedding validation.md §Result 3): emergent structure —
-does the trained space preserve the official SNI hierarchy ordinally,
-support cross-version retrieval, and produce a geometrically sensible
-2D/visual layout, independent of any single evidence source's own
-consistency (that's Result 2 — see P02_shared_geometry_reconstruction.py).
+=========================
+Result 3: emergent structure of the trained space, beyond any single source.
 
-Split out of the former evaluate_embeddings.py (2285 lines) 2026-07-30 —
-this half owns:
+Sections
+--------
+A   Hierarchy preservation: cosine similarity by shared-prefix level
+    (same group > same division > same section > different section)
+B   Cross-version retrieval SNI02 → SNI07 (Recall@k, MRR against the SCB
+    correspondence table)
+B2  Cross-version retrieval SNI92 → SNI02
+C   Case study: neighbourhood of a code that splits across versions (peat extraction)
+D   t-SNE of all codes coloured by version, and the cosine similarity of
+    SCB-aligned vs random cross-version pairs
 
-A. Hierarchy preservation
-   Cosine similarity by prefix-sharing level (same group > same division > cross-section).
-   Works at both 4-digit (SNI07/02) and 3-digit (SNI92) atom granularity.
+The paper's opportunity-space figure (t-SNE coloured by section) is produced
+by scripts/paper/plot_opportunity_space.py.
 
-B. Cross-version retrieval (Recall@k, MRR)
-   For every SNI02 atom, rank all SNI07 atoms by cosine similarity and check
-   whether the SCB-designated targets appear in the top-k.
+Outputs: results/embedding_eval/{run}/ (figures and log).
 
-B2. Cross-version retrieval (SNI92 → SNI02)
-
-C. Case studies — codes that split/merge across versions.
-
-D. t-SNE visualisation  (by version and by section), plus the aligned-
-   vs-random cosine-similarity distribution.
-
-D2. UMAP visualisation — same subsample/coloring as D, for stability
-    comparison against t-SNE.
-
-See P02_shared_geometry_reconstruction.py for E, E2, E3, F, H, I, I2, J, K,
-G, K2 (Result 2: per-source reconstruction fidelity) and
-_shared_eval_context.py for the setup/helpers both files share.
-
-This file never touches baseline-comparison embeddings (bl_vecs_*) or the
-NACE hierarchy-hub embeddings (vecs_3d/2d/sec) — verified 2026-07-30 that
-none of A/B/B2/C/D/D2 reference them — so it calls build_base_context()
-alone and skips the extra baseline SentenceTransformer encode pass (plus
-three hub-description encode passes) P02 needs but this file never uses.
-Logic/printing/plotting below is an unmodified move from
-evaluate_embeddings.py — no behavioral changes.
-
-Usage
------
-  python scripts/evaluation/P03_emergent_structure.py
-  python scripts/evaluation/P03_emergent_structure.py --baseline
-  python scripts/evaluation/P03_emergent_structure.py --model-dir /path/to/run/model_final --run-name ablation_nace
+Usage (main run)
+----------------
+  python scripts/evaluation/P03_emergent_structure.py --run-name shared_cosine_v16
 """
 
 import argparse
-import json
 import random
 import sys
 
-import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
@@ -62,22 +37,14 @@ from sklearn.manifold import TSNE
 from sklearn.metrics.pairwise import cosine_similarity
 
 from _shared_eval_context import (
-    SEED, metadata_dir,
+    SEED,
     add_common_args, build_base_context, load_crosswalks, open_log,
     exhaustive_pairs_by_level, levels, level_labels, average_precision, Ks,
 )
-from latent_industry.common.paths import INTERACTIVE_PLOTS_DIR
 
 parser = argparse.ArgumentParser()
-# P03's sections (A/B/B2/C/D/D2) never reference args.graph_name (verified
-# 2026-07-30 — H/I/J/K are the only sections that do, and those are
-# P02-only), so this parser doesn't carry that flag.
+# P03 does not read the graph files, so no --graph-name.
 add_common_args(parser, graph_name=False)
-parser.add_argument("--interactive-plots", action="store_true", default=False,
-                    help="Also write the D/D2 plotly HTML interactive t-SNE/UMAP maps. Off by "
-                         "default (2026-07-29): these were never used after the static PNGs "
-                         "were enough for inspection, and every run was adding two more sizeable "
-                         "HTML files to results/embedding_eval/. Static D/D2 PNGs are unaffected.")
 args, _ = parser.parse_known_args()
 
 ctx = build_base_context(args)
@@ -126,8 +93,7 @@ is_monotone = all(means[i] >= means[i + 1] for i in range(len(means) - 1))
 print(f"\n  Hierarchy monotone (3d > 2d > section): {'YES ✓' if is_monotone else 'NO — model needs more training'}")
 
 # ── Tree-distance correlation — the "Hierarchy" row's source-specific metric
-# (ordinal, not KL — see docs/conceptual_audit.md's Hierarchy representation
-# section). Spearman rho between cosine
+# (ordinal, not KL). Spearman rho between cosine
 # DISTANCE and hierarchy tree distance (1=same 3d group … 4=different
 # section), pooled across all four levels so no single level dominates.
 same_section_sims = exhaustive_pairs_by_level(codes_07, vecs_07, "same_section", idx_07=idx_07,
@@ -223,7 +189,7 @@ for src_code, targets in true_targets.items():
 print(f"  SNI02 codes evaluated: {len(true_targets)}")
 print(f"  Mean Reciprocal Rank (MRR):  {np.mean(mrr_scores):.4f}")
 print(f"  Mean Average Precision (MAP): {np.mean(map_scores):.4f}  "
-      f"(scores against ALL true partners, not just the first hit — see v7 §4.1)")
+      f"(scores against all true partners, not just the first hit)")
 for k in Ks:
     print(f"  Recall@{k:<3d}:                 {np.mean(recall_at_k[k]):.4f}")
 
@@ -462,212 +428,7 @@ fig.savefig(eval_dir / f"{args.run_name}_D_tsne_by_version.png", dpi=150, bbox_i
 print(f"  → {eval_dir / f'{args.run_name}_D_tsne_by_version.png'}")
 plt.close()
 
-# ── Plot 2: all versions, coloured by section, shaped by version ──────────────
-# Load section letter → full name for each version
-def _load_sec_names(year: str) -> dict[str, str]:
-    p = metadata_dir / f"mapping_Sni_section_{year}.json"
-    if p.exists():
-        with open(p) as f:
-            return json.load(f)
-    return {}
-
-_sec_names = {}
-for _y, _m in [("2007", section_map_07), ("2002", section_map_02), ("1992", section_map_92)]:
-    for _letter, _name in _load_sec_names(_y).items():
-        _sec_names.setdefault(_letter, _name)
-
-def _section_label(letter: str) -> str:
-    name = _sec_names.get(letter, "")
-    if not name or name == "Unknown":
-        return letter
-    # T's full name ("...as employers; undifferentiated goods- and
-    # services-producing activities...") is far longer than every other
-    # section and was stretching the legend box for everyone — truncate at
-    # the semicolon when a name is unusually long (only T qualifies; G/E/O's
-    # shorter "X; repair of Y" names stay intact).
-    if len(name) > 80 and ";" in name:
-        name = name.split(";")[0]
-    return f"{letter} — {name}"
-
-def _get_sec(code: str, ver: str) -> str:
-    if ver == "SNI07": return section_map_07.get(code[:2], "?")
-    if ver == "SNI02": return section_map_02.get(code[:2], "?")
-    return section_map_92.get(code[:2], "?")
-
-# Flat arrays across all versions
-_all_codes = sc_07 + sc_02 + sc_92
-_all_vers  = ["SNI07"] * len(sc_07) + ["SNI02"] * len(sc_02) + ["SNI92"] * len(sc_92)
-_all_secs  = [_get_sec(c, v) for c, v in zip(_all_codes, _all_vers)]
-_all_descs = ([sni07.get(c, "") for c in sc_07]
-             + [sni02.get(c, "") for c in sc_02]
-             + [sni92.get(c, "") for c in sc_92])
-
-unique_secs_all = sorted({s for s in _all_secs if s != "?"})
-n_secs = len(unique_secs_all)
-
-# 21 perceptually distinct hues via HSV spacing — high saturation + low
-# value (darker) so every hue, including yellows/greens that read as washed
-# out at high value, stays clearly visible against the white background.
-_hues = [matplotlib.colors.hsv_to_rgb([(i / n_secs) % 1.0, 0.95, 0.62]) for i in range(n_secs)]
-sec_color_map = {s: _hues[i] for i, s in enumerate(unique_secs_all)}
-
-ver_marker = {"SNI07": "o", "SNI02": "s", "SNI92": "^"}
-ver_size   = {"SNI07": 26, "SNI02": 26, "SNI92": 30}
-
-# Paper figure: sized to stand alone (bigger than the other diagnostic
-# plots) — this is the one t-SNE-by-section view the paper uses directly.
-# Per docs/paper_introduction.md, the paper's central object is the LEARNED
-# OPPORTUNITY SPACE (Grillitsch/Asheim/Trippl's term for the geometric model
-# of industry relatedness this embedding provides) — not a generic "t-SNE
-# diagnostic". No on-image title: the section/version legends already carry
-# that framing, and the paper's own caption covers the rest.
-fig, ax = plt.subplots(figsize=(18, 14))
-
-for ver in ["SNI07", "SNI02", "SNI92"]:
-    v_mask = np.array([v == ver for v in _all_vers])
-    v_xy   = xy[v_mask]
-    v_secs = [s for s, m in zip(_all_secs, v_mask) if m]
-    colors = [sec_color_map.get(s, (0.7, 0.7, 0.7)) for s in v_secs]
-    ax.scatter(v_xy[:, 0], v_xy[:, 1], c=colors,
-               marker=ver_marker[ver], s=ver_size[ver],
-               alpha=0.9, edgecolors="black", linewidths=0.4, zorder=2)
-
-# Section legend (color patches)
-sec_handles = [
-    mpatches.Patch(color=sec_color_map[s], label=_section_label(s))
-    for s in unique_secs_all
-]
-# Version legend (marker lines)
-ver_handles = [
-    plt.Line2D([0], [0], marker=ver_marker[v], color="w", markerfacecolor="#555",
-               markersize=8, label=v)
-    for v in ["SNI07", "SNI02", "SNI92"]
-]
-
-# Both legends anchored OUTSIDE the axes (right margin) instead of inside
-# upper-left/lower-left — with 21 sections the in-axes legends used to sit
-# directly on top of the densest part of the point cloud. bbox_inches="tight"
-# on save (below) keeps the external legends inside the saved image bounds.
-leg1 = ax.legend(handles=sec_handles, loc="upper left", bbox_to_anchor=(1.01, 1.0),
-                 fontsize=8, title="Section", ncol=1, framealpha=0.85)
-ax.add_artist(leg1)
-leg2 = ax.legend(handles=ver_handles, loc="lower left", bbox_to_anchor=(1.01, 0.0),
-                 fontsize=9, title="Version", framealpha=0.85)
-
-ax.axis("off")
-# tight_layout() only reasons about in-axes content, not the two out-of-axes
-# legends above — pass them explicitly via bbox_extra_artists so savefig's
-# bbox_inches="tight" actually expands the canvas to include full legend
-# text instead of clipping it at the figure's original right edge.
-plt.tight_layout()
-fig.savefig(eval_dir / f"{args.run_name}_D_tsne_all_by_section.png",
-            dpi=300, bbox_inches="tight", bbox_extra_artists=(leg1, leg2))
-print(f"  → {eval_dir / f'{args.run_name}_D_tsne_all_by_section.png'}")
-plt.close()
-
-# ── Interactive HTML (plotly) — opt-in via --interactive-plots ────────────────
-try:
-    if not args.interactive_plots:
-        raise ImportError("skipped by default — pass --interactive-plots to enable")
-    import plotly.graph_objects as go
-
-    # One trace per (section, version) so legend is clean
-    fig_html = go.Figure()
-    plotly_syms = {"SNI07": "circle", "SNI02": "square", "SNI92": "triangle-up"}
-
-    for sec in unique_secs_all:
-        sec_lbl = _section_label(sec)
-        for ver in ["SNI07", "SNI02", "SNI92"]:
-            mask = [s == sec and v == ver
-                    for s, v in zip(_all_secs, _all_vers)]
-            if not any(mask):
-                continue
-            xs  = xy[mask, 0]
-            ys  = xy[mask, 1]
-            cds = [c for c, m in zip(_all_codes, mask) if m]
-            dcs = [d for d, m in zip(_all_descs, mask) if m]
-            rgb = sec_color_map.get(sec, (0.7, 0.7, 0.7))
-            hex_col = "#{:02x}{:02x}{:02x}".format(
-                int(rgb[0]*255), int(rgb[1]*255), int(rgb[2]*255))
-
-            hover = [
-                f"<b>{c}</b> ({ver})<br>"
-                f"{d[:90]}{'…' if len(d)>90 else ''}<br>"
-                f"Section {sec_lbl}"
-                for c, d in zip(cds, dcs)
-            ]
-            fig_html.add_trace(go.Scatter(
-                x=xs, y=ys,
-                mode="markers",
-                name=f"{sec} / {ver}",
-                legendgroup=sec_lbl,
-                legendgrouptitle={"text": sec_lbl} if ver == "SNI07" else {},
-                marker=dict(
-                    symbol=plotly_syms[ver],
-                    color=hex_col,
-                    size=7,
-                    opacity=0.8,
-                    line=dict(width=0.3, color="white"),
-                ),
-                hovertext=hover,
-                hoverinfo="text",
-                showlegend=True,
-            ))
-
-    # Fixed width:height matching the static PNG's figsize=(18, 14) ratio
-    # (~1.286:1) — otherwise autosize=True stretches the figure to whatever
-    # container width it's embedded in while height stays pinned at 1300,
-    # giving a visibly squashed-together plot area relative to the PNG's
-    # deliberately wide canvas. autosize=False so these explicit dimensions
-    # actually take effect; config={"responsive": True} (below, at
-    # write_html) still lets the browser scale the whole figure down/up on
-    # resize, but proportionally — width:height stays locked at this ratio
-    # instead of drifting to match the container's own shape.
-    _html_height = 1300
-    _html_width = round(_html_height * 18 / 14)
-    fig_html.update_layout(
-        title="Abstract Economic Space — t-SNE (all SNI versions)<br>"
-              "<sup>Hover over a dot to see code, description and section</sup>",
-        autosize=False,
-        width=_html_width,
-        height=_html_height,
-        margin=dict(l=20, r=20, t=60, b=20),
-        legend=dict(
-            groupclick="toggleitem",
-            font=dict(size=10),
-            tracegroupgap=4,
-            x=1.01, xanchor="left",
-            y=1.0,  yanchor="top",
-        ),
-        plot_bgcolor="white",
-        xaxis=dict(visible=False),
-        # scaleanchor/scaleratio locks the y-axis to the x-axis's data unit
-        # so distances read the same in both directions — without this,
-        # autosize stretches the shorter axis to fill available width/height
-        # and distorts the t-SNE layout (a plotly default quirk matplotlib's
-        # savefig doesn't have, since imshow/scatter there stay 1:1 unless
-        # told otherwise too, but figsize masked it for the static PNG).
-        yaxis=dict(visible=False, scaleanchor="x", scaleratio=1),
-    )
-    # Written to LUNARC nobackup storage, not results/embedding_eval/ — a
-    # multi-MB plotly HTML doesn't belong in the git-tracked results tree
-    # (same rule as EMBEDDING_DIR/PROCESSED_DATA_DIR — see paths.py).
-    INTERACTIVE_PLOTS_DIR.mkdir(parents=True, exist_ok=True)
-    html_path = INTERACTIVE_PLOTS_DIR / f"{args.run_name}_D_tsne_interactive.html"
-    fig_html.write_html(
-        str(html_path),
-        config={"responsive": True, "scrollZoom": True},
-        full_html=True,
-    )
-    print(f"  → {html_path}")
-except ImportError as e:
-    print(f"  interactive HTML skipped ({e})")
-
-# D2 (UMAP visualisation) removed entirely (2026-08-05) — t-SNE (D above) is
-# the one 2D view the paper uses; UMAP was only ever a stability cross-check
-# and was never referenced by build_paper_tables.py or the paper itself.
-
-# ── Plot 3: cosine similarity distribution — aligned pairs vs random ───────────
+# ── Plot 2: cosine similarity distribution — aligned pairs vs random ───────────
 print("\n  Aligned vs random cosine similarity distribution …")
 
 aligned_sims = []

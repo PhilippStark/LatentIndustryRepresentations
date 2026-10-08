@@ -1,50 +1,40 @@
 """
 P04_growth.py
-============================
-Tests whether industries growing (or declining) in a Swedish municipality are
-embedded closer to (or farther from) the existing local employment mass.
+=============
+Relatedness density and local employment growth of industries (appendix).
+Requires the restricted SCB individual-level register panel.
 
-Two complementary density measures operationalise the classic related / unrelated
-variety debate (Frenken et al. 2007):
-
-  density_near_{j,m,t} = Σ_i K_near[i,j] · w_{i,m,t} / W_{m,t}
-    K_near = softmax(+τ · cos(i,j))  — attention concentrated on CLOSEST industries
-    → tests Marshall externalities / related variety
-
-  density_far_{j,m,t} = Σ_i K_far[i,j] · w_{i,m,t} / W_{m,t}
-    K_far  = softmax(−τ · cos(i,j))  — attention concentrated on MOST DISTANT industries
-    → tests Jacobs externalities / unrelated variety
-
-Horse-race regression (both in same model after three-way FE absorption) shows
-which variety of local industrial mix predicts employment growth for industry j.
-
-A third "base" density (τ=1.0) is also kept as the primary single-variable result.
-kNN density is a hard-threshold robustness check.
-
-density_ew_{j,m,t} = Σ_{i≠j} w_{i,m,t}·cos(z_i,z_j) / Σ_{i≠j} w_{i,m,t}
-  Plain employment-weighted mean cosine similarity to industry j's local
-  employment mix (leave-one-out: excludes j's own employment from both
-  sums). No temperature/kernel — a robustness check against the softmax
-  base density above, which concentrates weight on the closest neighbours
-  rather than averaging over the whole regional mix.
-
-Outcome (continuous, handles entry and exit on the same scale):
+Outcome
+-------
   growth_{j,m,t} = arcsinh(w_{j,m,t+1}) − arcsinh(w_{j,m,t})
 
-Identification: panel OLS absorbed via triple demeaning — municipality,
-  then year, then industry (separate additive municipality and year
-  effects, not an interacted municipality×year term) — three-way FE.
-  Standard errors clustered by municipality.
+for industry j, municipality m and year t (w = employment), within each
+classification period (transition years 2001→2002 and 2006→2007 skipped).
 
-SNI version periods (transition year-pairs 2001→2002 and 2006→2007 are skipped):
-  SNI92: 1990–2001  (year pairs 1990→1991 … 2000→2001)
-  SNI02: 2002–2006  (year pairs 2002→2003 … 2005→2006)
-  SNI07: 2007–2019  (year pairs 2007→2008 … 2018→2019)
+Density measures
+----------------
+  density        base kernel density (--kernel, default softmax with --tau)
+  density_near   softmax(+τ_near · cos) kernel: weight on the closest industries
+  density_far    softmax(−τ_near · cos) kernel: weight on the most distant
+                 industries (related vs. unrelated variety, Frenken et al. 2007)
+  knn_density    mean similarity to the --knn-k nearest present industries
+  density_ew     employment-weighted mean cosine similarity (leave-one-out)
 
-Usage
------
-  python scripts/regional/P04_growth.py
-  python scripts/regional/P04_growth.py --run-name graph_kl --tau-near 10 --knn-k 30
+Regressions use industry, municipality and year fixed effects (sequential
+demeaning), SE clustered by municipality, per classification period, plus
+municipality-specific slopes and maps.
+
+Appendix result: growth_binary = 1{growth > 0} regressed on the main-text
+density D^{A,log} (log-employment-weighted) with the main specification of
+P04_entry.py (municipality×year + industry FE, two-way clustered SE).
+
+Outputs: results/regional_growth/{run}{suffix}_* (figures, summaries,
+coefficients, maps) and the panel under
+<LATENT_DATA_ROOT>/processed/downstream_outcomes/growth/.
+
+Usage (main run)
+----------------
+  python scripts/regional/P04_growth.py --run-name shared_cosine_v16
 """
 
 import argparse
@@ -62,6 +52,8 @@ sys.path.insert(0, str(project_root / "src"))
 
 from latent_industry.common.paths import EMBEDDING_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR
 from latent_industry.common.municipalities import harmonization_table, load_municipality_crosswalk
+from latent_industry.regional.fixed_effects import standardise_density
+from latent_industry.regional.reporting import report_density_regressions
 from latent_industry.regional.density import (
     load_sni_embeddings, make_kernel, make_inv_softmax_kernel, make_knn_weights,
     employment_weighted_density, geometric_mean_employment_weighted_density,
@@ -83,7 +75,7 @@ OUT_DIR = PROCESSED_DATA_DIR / "downstream_outcomes" / "growth"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Defaults — edit here when running directly in VS Code ─────────────────────
-DEFAULT_RUN_NAME  = "multilayer_v1"
+DEFAULT_RUN_NAME  = "shared_cosine_v16"
 DEFAULT_KERNEL    = "softmax"  # "raw" | "relu" | "softmax"
 DEFAULT_TAU       = 1.0        # softmax temperature for the base density variable
 DEFAULT_TAU_NEAR  = 5.0        # high τ → very peaked near cluster (related variety)
@@ -93,11 +85,10 @@ DEFAULT_MIN_OBS   = 30         # min panel rows per municipality for muni-level 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name",  default=DEFAULT_RUN_NAME,
-                    help="Embedding run (from train_sentence_embedding.py --run-name).")
+                    help="Embedding run under EMBEDDING_DIR (train_shared_cosine_embedding.py --run-name).")
 parser.add_argument("--out-suffix", default="",
                     help="Appended to OUT_NAME (output filename prefix) without touching "
-                         "--run-name, so an investigative run (e.g. a fixed-effects spec "
-                         "change) never overwrites this run's already-published outputs.")
+                         "--run-name, so variant runs do not overwrite the main outputs.")
 parser.add_argument("--kernel",    default=DEFAULT_KERNEL,
                     choices=["raw", "relu", "softmax"],
                     help="Similarity kernel for the BASE density variable.")
@@ -1027,85 +1018,25 @@ except Exception as e:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 12. Appendix: binarized growth outcome — growth_binary = 1{growth > 0},
-#    regressed on density_ew_log (the entry/exit/startup_entry baseline), same
-#    industry + municipality + year FE triple demeaning, same per-period
-#    design, same shared plotting function. Purely additive: does not touch
-#    or depend on anything in the continuous multi-kernel analysis above.
+# 12. Appendix: binarised outcome growth_binary = 1{growth > 0}, regressed on the
+#    main-text density D^{A,log} (density_ew_log) with municipality×year +
+#    industry fixed effects and SE clustered by municipality and industry
+#    (latent_industry.regional.reporting), per classification period.
 # ═══════════════════════════════════════════════════════════════════════════════
 
-print("\n" + "=" * 60)
-print("Appendix: relatedness density → positive growth (binarized), "
-      "per classification period, industry + municipality + year FE, SE clustered by muni")
-print("=" * 60)
-
 panel["growth_binary"] = (panel["growth"] > 0).astype(float)
-_sd_ew_log = float(panel["density_ew_log"].std())
-panel["density_ew_log_std"] = panel["density_ew_log"] / _sd_ew_log
-print(f"  density_ew_log pre-standardised (÷ SD = {_sd_ew_log:.6f}, pooled across all periods)")
-
-GROWTH_BINARY_OUTCOME = "growth_binary"
-growth_binary_results: dict[str, dict] = {}
-gb_dm_frames: list[pd.DataFrame] = []
-
-for period_name in periods_order:
-    sub = panel[panel["period"] == period_name].copy()
-    for var in [GROWTH_BINARY_OUTCOME, "density_ew_log_std"]:
-        sub[f"{var}_r1"] = demean(sub, var,         "municipality")
-        sub[f"{var}_r2"] = demean(sub, f"{var}_r1",  "year")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_r2",  "industry")
-
-    res  = run_ols(sub[f"{GROWTH_BINARY_OUTCOME}_dm"], sub["density_ew_log_std_dm"], sub["municipality"])
-    rate = float(sub[GROWTH_BINARY_OUTCOME].mean())
-    res["pct_of_baseline"] = res["coef"] / rate * 100 if rate > 0 else float("nan")
-    res["rate"] = rate
-    growth_binary_results[period_name] = res
-    print(f"  {period_name}:  coef={res['coef']:+.6f}  SE={res['se']:.6f}  t={res['t']:.3f}  "
-          f"p={res['pval']:.3e}  N={res['n']:,}  baseline rate={rate:.4%}  "
-          f"→ β = {res['pct_of_baseline']:+.1f}% of baseline per 1-SD density_ew_log")
-    gb_dm_frames.append(sub)
-
-gb_panel = pd.concat(gb_dm_frames, ignore_index=True)
-
-gb_year_records: list[dict] = []
-for year, sub in panel.groupby("year"):
-    sub = sub.copy()
-    for var in [GROWTH_BINARY_OUTCOME, "density_ew_log_std"]:
-        sub[f"{var}_dm"] = demean(sub, var, ["municipality"])
-        sub[f"{var}_dm"] = demean(sub, f"{var}_dm", ["industry"])
-    r = run_ols(sub[f"{GROWTH_BINARY_OUTCOME}_dm"], sub["density_ew_log_std_dm"], sub["municipality"])
-    r["year"] = int(year)
-    gb_year_records.append(r)
-gb_year_df = pd.DataFrame(gb_year_records).sort_values("year")
-
-# Panel A plots outcome-by-density-decile using whatever column is literally
-# named "density" — swap in density_ew_log (the density this appendix
-# regresses on) rather than the continuous analysis's own softmax "density".
-_gb_plot_panel = gb_panel.drop(columns=["density"]).rename(columns={"density_ew_log": "density"})
-_gb_fig_path = plot_density_effect_summary(
-    _gb_plot_panel, gb_year_df, growth_binary_results,
-    periods_order, GROWTH_BINARY_OUTCOME,
-    "Observed positive-growth rate",
-    "Effect on positive-growth probability per 1-SD density (in %)",
-    "darkorange",
-    results_dir / f"{OUT_NAME}_growth_binary.png",
+standardise_density(panel, "density_ew_log", "density_ew_log_std")
+report_density_regressions(
+    panel, "growth_binary", "Observed positive-growth rate",
+    "Effect on positive-growth probability per 1-SD density (in %)", "darkorange",
+    fig_path=results_dir / f"{OUT_NAME}_growth_binary.png",
+    summary_path=results_dir / f"{OUT_NAME}_growth_binary_summary.csv",
+    year_path=results_dir / f"{OUT_NAME}_growth_binary_year_coefs.csv",
+    summary_extra={"run": args.run_name},
+    density_col="density_ew_log_std", plot_density_col="density_ew_log",
 )
-print(f"  → {_gb_fig_path}")
-
-gb_year_df.to_csv(results_dir / f"{OUT_NAME}_growth_binary_year_coefs.csv", index=False)
-gb_summary_rows = []
-for period_name in periods_order:
-    in_period = panel["period"] == period_name
-    res = growth_binary_results[period_name]
-    gb_summary_rows.append({
-        "run": args.run_name, "period": period_name,
-        "n_obs": int(in_period.sum()),
-        "growth_binary_rate": panel.loc[in_period, GROWTH_BINARY_OUTCOME].mean(),
-        "growth_binary_coef": res["coef"], "growth_binary_se": res["se"],
-        "growth_binary_pval": res["pval"], "growth_binary_r": res["partial_r"],
-        "growth_binary_pct_of_baseline": res["pct_of_baseline"],
-    })
-pd.DataFrame(gb_summary_rows).to_csv(results_dir / f"{OUT_NAME}_growth_binary_summary.csv", index=False)
-print(f"  → {results_dir}/  ({OUT_NAME}_growth_binary_year_coefs.csv, _growth_binary_summary.csv)")
+# Small cache of this appendix panel, so it can be re-estimated without the microdata.
+panel[["period", "year", "municipality", "industry", "density_ew_log", "growth_binary"]].to_parquet(
+    OUT_DIR / f"{OUT_NAME}_growth_binary_panel.parquet", index=False)
 
 print("\nDone.")

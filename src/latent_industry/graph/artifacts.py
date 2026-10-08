@@ -1,16 +1,14 @@
-"""artifacts.py — save/load for the two pipeline stages' on-disk outputs.
+"""
+artifacts.py — save/load of the graph pipeline's outputs (PROCESSED_DATA_DIR).
 
-Stage 1 (build_layer_transition_matrices.py, run once per `name`, cached):
-  layers_{name}.npz                     one P/avail/domain per layer, + S_neg
-  graph_nodes_{name}.parquet            full node table
-  graph_edges_{name}.parquet            every layer's raw (pre-normalisation) edges
-  graph_negative_edges_{name}.parquet   diagnostic-only negative NACE cosine pairs
+Stage 1 (scripts/graph/build_layer_transition_matrices.py):
+  layers_{name}.npz                     P / avail / domain per view, plus S_neg
+  graph_nodes_{name}.parquet            node table
+  graph_edges_{name}.parquet            raw (pre-normalisation) edges of every view
+  graph_negative_edges_{name}.parquet   negative NACE cosine pairs (diagnostics)
 
-Stage 2 (build_layer_diffusion_targets.py, reads stage 1's cache):
-  layer_diffusion_expanded_{name}.npz   one P_l^(t)/domain/family per
-                                         (layer, t) pair, each its own target —
-                                         see
-                                         layer_diffusion.build_layer_diffusion_targets_expanded.
+Stage 2 (scripts/graph/build_layer_diffusion_targets.py):
+  layer_diffusion_expanded_{name}.npz   P_l^t / domain / family per (view, t)
 """
 
 import json
@@ -39,11 +37,10 @@ def save_layers(name: str, ni: NodeIndex, layers: dict[str, Layer], S_neg: np.nd
 
 
 def load_layers(name: str) -> tuple[dict[str, Layer], np.ndarray, list[int]]:
-    """Loads cached layer transition matrices for stage 2. Raises a clear
-    error if stage 1 hasn't been run yet for this name — the old failure
-    mode (silently reading a stale or wrong-name file) is what NAME
-    threading in run_pipeline.py exists to prevent; this is the same
-    protection at the layer-cache boundary."""
+    """
+    Load the cached view transition matrices of stage 1; raises if stage 1 has
+    not been run for `name`.
+    """
     path = _layers_path(name)
     if not path.exists():
         raise FileNotFoundError(
@@ -72,11 +69,11 @@ def save_graph_tables(name: str, ni: NodeIndex, edges_df: pd.DataFrame,
 
 
 def load_raw_edges(name: str, layer: str | None = None) -> pd.DataFrame:
-    """Stage 1's pre-normalisation edge table (graph_edges_{name}.parquet),
-    optionally filtered to one layer. Used by layer_diffusion.py's
-    cross-granularity lift, which needs `io`'s *raw* weights — the cached
-    `Layer.P` in layers_{name}.npz has already been row-normalised, and
-    lifting must happen before that normalisation (math doc §2.1)."""
+    """
+    Stage 1's raw (pre-normalisation) edge table, optionally filtered to one
+    view. Used for lifting `io` to a finer level, which must happen before
+    row-normalisation.
+    """
     path = PROCESSED_DATA_DIR / f"graph_edges_{name}.parquet"
     if not path.exists():
         raise FileNotFoundError(

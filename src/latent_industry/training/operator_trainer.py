@@ -1,8 +1,7 @@
-"""operator_trainer.py — Phase 5 of the operator-preserving regime. One
-joint backward pass per epoch: every layer's loss is computed in the same
-forward pass, summed as L = sum_l lambda_l * L_l, and a single
-optimizer.step() updates Z and every layer's observation-model parameters
-together (design doc §3) — not sequential per-layer backward/step calls.
+"""
+operator_trainer.py — joint full-batch training: in every epoch all targets'
+losses are computed in one forward pass, combined as L = Σ_t w_t L_t, and a
+single optimizer step updates Z and all observation-model parameters.
 """
 
 from typing import Callable
@@ -18,33 +17,28 @@ def _entropy(p: torch.Tensor) -> torch.Tensor:
 
 
 def hinge_loss(loss: torch.Tensor, margin: float) -> torch.Tensor:
-    """Saturating loss floor (user's item #1, 2026-07-25): once `loss` drops
-    below `margin` (typically a small fraction of that target's own null/
-    trivial-baseline loss — see operator_data.load_operator_data_expanded's
-    `saturation_frac`), this is exactly zero — both the reported loss AND
-    its gradient — instead of continuing to compete, however faintly, with
-    targets that are still unsatisfied. `margin=0` (every target's default,
-    via OperatorData.margins' empty-dict default) is an exact no-op: `loss`
-    is already non-negative (KL/CE/MSE all are), so `clamp(loss - 0, min=0)
-    == loss`."""
+    """
+    max(loss − margin, 0): once a target's loss is below its margin (a fraction
+    of its null loss, see operator_data.load_operator_data_expanded), it
+    contributes neither loss nor gradient. margin = 0 is a no-op.
+    """
     return torch.clamp(loss - margin, min=0.0)
 
 
 def dynamic_reweight_ratio(running_loss_epoch1: float, running_loss_now: float, max_ratio: float) -> float:
-    """user's item #2, 2026-07-25: how much to rescale a target's static
-    weight so its CONTRIBUTION (weight * raw_loss) stays pinned near its
-    epoch-1 value throughout training, instead of fading as the raw loss
-    improves. `running_loss_now` -> 0 as a target saturates, so the ratio
-    is clamped to `max_ratio` — unbounded growth here is exactly why this
-    is meant to be paired with `hinge_loss`'s margin, which zeroes the
-    contribution outright once the target is genuinely satisfied, rather
-    than relying on this clamp alone."""
+    """
+    Factor by which a target's static weight is rescaled so that its
+    contribution (weight × raw loss) stays near its epoch-1 value as the loss
+    falls: running_loss_initial / running_loss_now, clamped to max_ratio.
+    """
     return min(running_loss_epoch1 / max(running_loss_now, 1e-12), max_ratio)
 
 
 def ema_update(previous: float, new_value: float, decay: float) -> float:
-    """Exponential moving average — the `running_loss` estimate
-    `dynamic_reweight_ratio` normalises against."""
+    """
+    Exponential moving average, the running-loss estimate used by
+    dynamic_reweight_ratio.
+    """
     return decay * previous + (1 - decay) * new_value
 
 
@@ -52,23 +46,13 @@ def stall_capped_ratio(
     raw_ratio: float, running_loss_now: float, baseline_loss: float,
     stall_ratio: float, stall_min_improvement: float,
 ) -> tuple[float, bool]:
-    """user's item #4, 2026-07-27: `dynamic_reweight_ratio` alone can't
-    distinguish a target that's genuinely hard (loss slow but real to
-    move) from one that's structurally unsatisfiable (loss pinned at its
-    own null value regardless of weight) — both look identical to the
-    reweighter, which just keeps boosting either. `transition_SNI02_SNI07_t1`
-    got boosted past 10-15x in `shared_cosine_v4` BECAUSE its loss wouldn't
-    move, not despite it — the reweighter's blindness to *why* a loss is
-    high is exactly the failure mode this guards against.
-
-    Once `raw_ratio` would cross `stall_ratio`, this requires the loss to
-    have improved by at least `stall_min_improvement` (a fraction, e.g.
-    0.1 = 10%) relative to `baseline_loss` (the running loss the last time
-    the ratio was below `stall_ratio`, tracked by the caller) — if not,
-    the ratio is capped AT `stall_ratio` (not allowed to climb further)
-    and `True` is returned so the caller can flag it once. A target that
-    keeps genuinely improving is never capped, however far its ratio
-    climbs — only a target whose loss stops moving gets stopped.
+    """
+    Cap for dynamic_reweight_ratio that separates hard targets from stalled
+    ones. Once the raw ratio would exceed `stall_ratio`, the loss must have
+    improved by at least `stall_min_improvement` (relative) since the ratio was
+    last below `stall_ratio` (`baseline_loss`, tracked by the caller); otherwise
+    the ratio is capped at `stall_ratio` and True is returned so the caller can
+    flag the target as stalled.
     """
     if raw_ratio < stall_ratio:
         return raw_ratio, False
@@ -79,27 +63,14 @@ def stall_capped_ratio(
 
 
 def restrict_to_domain(operator_data: OperatorData) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
-    """Domain-restrict each layer's target/active-mask ONCE (domain masks
-    are static across epochs), and put the target into the exact shape/
-    normalisation the loss functions expect: diagonal excluded (matching
-    the observation model's -inf self-logit) and each row renormalised
-    over j != i so it's a proper distribution over the same support the
-    softmax produces (math doc §4 — "re-excluding the diagonal, consistent
-    with how P̃_l was already zero on the diagonal-adjacent structure").
-    Rows that end up all-zero (inactive, or one where the diagonal held all
-    the mass) stay exactly zero — `active_mask` already excludes them from
-    every loss's row-mean, so a degenerate zero row there is inert.
+    """
+    Restrict each target and active mask to the target's domain (once, as
+    domains are static) and bring the target into the form the losses expect:
+    diagonal excluded (matching the observation model's −inf self-logit) and
+    each row renormalised over j ≠ i. All-zero rows stay zero and are excluded
+    by the active mask.
 
-    Public (not trainer-private): operator_diagnostics.py's Phase 7 report
-    needs the exact same domain-restricted/renormalised target shape the
-    losses were actually trained against, not a second, potentially
-    drifting reimplementation of this step.
-
-    `"ordinal"`-kind targets (v7 §1.4) are special-cased: their target is a
-    tier-rank matrix (values in {0..4}), not a probability distribution, so
-    the diagonal-zero/row-renormalise step below must be skipped entirely —
-    it would corrupt the tier labels (dividing rank integers by a row sum
-    that means nothing for them).
+    "ordinal" targets are tier-rank matrices and are not renormalised.
     """
     targets, active = {}, {}
     for lname in operator_data.targets:
@@ -121,21 +92,13 @@ def pretraining_diagnostics(
     domain_targets: dict[str, torch.Tensor], domain_active: dict[str, torch.Tensor],
     hub_aggregation: torch.Tensor | None = None,
 ) -> None:
-    """One forward (+ isolated backward) pass with the current Z/M_l, before
-    the training loop starts. Logs domain size, target entropy, initial
-    loss, and ||grad_Z L_l|| per layer — because domain sizes vary a lot
-    across layers, uniform lambda_l does not automatically mean "equal
-    influence per mechanism"; a bigger raw loss number isn't automatically
-    "harder" (a categorical loss's scale grows with log(domain size)), and
-    the loss value alone doesn't say whether a layer's gradient will be
-    negligible or dominant once the joint loss starts training (see the
-    implementation plan's Phase 5).
+    """
+    One forward (and isolated backward) pass before training: logs domain size,
+    target entropy, initial loss and ||∇_Z L_t|| per target, to show how
+    influential each target is at the start.
 
-    `hub_aggregation` (v7 §1.2, default None): if given, every observation
-    model sees `hub_aggregation @ Z` instead of raw `Z` — see train_joint's
-    docstring. Entropy is skipped (printed as "n/a") for `"ordinal"`-kind
-    targets (v7 §1.4): their target is a tier-rank matrix, not a probability
-    distribution, so a Shannon entropy over it isn't meaningful.
+    With `hub_aggregation`, observation models see hub_aggregation @ Z.
+    Entropy is not reported for "ordinal" targets.
     """
     print(f"\n{'layer':<12}{'domain':>8}{'entropy':>10}{'init_loss':>12}{'grad_norm':>12}")
     for lname in operator_data.targets:
@@ -176,61 +139,29 @@ def train_joint(
     hub_aggregation: torch.Tensor | None = None,
     on_epoch: Callable[[int, torch.Tensor, dict[str, float]], None] | None = None,
 ) -> float:
-    """Full-batch joint training loop. Returns the best (lowest) total loss
-    observed.
+    """
+    Full-batch joint training loop; returns the lowest total loss observed.
 
-    `dynamic_reweight` (default off, fully backward-compatible — user's
-    item #2, 2026-07-27): with the default static `operator_data.weights`,
-    a target's CONTRIBUTION to the joint loss (`weight * raw_loss`) shrinks
-    automatically as its raw loss improves — which sounds right, but means
-    a target that's already been solved keeps fading toward irrelevance
-    while a target that's stuck near its initial loss keeps its full
-    original share forever; nothing ever explicitly grows a stuck target's
-    relative influence. `dynamic_reweight=True` re-derives the null-loss-
-    style normalisation CONTINUOUSLY instead of only at epoch 1: it tracks
-    an EMA of each target's own raw loss (`running_loss`) and rescales that
-    target's weight by `running_loss(epoch=1) / running_loss(epoch)`
-    (clamped to `reweight_max_ratio`, since this ratio -> infinity as a
-    target's loss -> 0) — algebraically this holds `weight(epoch) *
-    raw_loss(epoch) ≈ weight(1) * raw_loss(1)` for every epoch, i.e. every
-    target's contribution stays pinned near its original fair share
-    (`family_weight / n_targets_in_family`) throughout training instead of
-    fading as it's solved. Combined with `operator_data.margins`'s
-    saturating hinge below (user's item #1) — which is what actually stops
-    an already-solved target's contribution, at exactly zero, once it
-    crosses its own margin — the two together are what let capacity
-    reallocate toward a stuck target instead of an already-solved sibling
-    continuing to sharpen indefinitely.
-
-    `reweight_stall_ratio`/`reweight_stall_min_improvement` (user's item
-    #4, 2026-07-27): a guard on the guard. `dynamic_reweight` alone can't
-    tell "hard" (loss moving slowly) from "structurally broken" (loss
-    pinned regardless of weight) — both just look like "still high," so
-    the ratio keeps climbing either way. Once a target's ratio would cross
-    `reweight_stall_ratio` (default 5x), `stall_capped_ratio` requires its
-    loss to have improved by `reweight_stall_min_improvement` (default 10%)
-    since the last time it was below that threshold; if not, the ratio is
-    capped there and a one-time WARNING is printed flagging the target as
-    stalled rather than hard. This is what should have stopped
-    `transition_SNI02_SNI07_t1` at ~5x instead of the ~10-15x
-    `shared_cosine_v4` actually reached — its loss wasn't moving BECAUSE it
-    was stuck, and the reweighter had no way to tell the difference.
-
-    `hub_aggregation` (v7 §1.2, default None — fully backward-compatible for
-    train_operator_embedding.py's bilinear/MLP regime): if given, an (N, N)
-    matrix such that `hub_aggregation @ Z` gives every 4d row back unchanged
-    and every hub row (3d/2d/section) the mean of its 4d descendants —
-    see operator_embedding.build_hub_aggregation_matrix. Computed ONCE per
-    epoch (not once per target — the matrix is identical across every
-    layer) and used in place of raw `Z` for every observation model's
-    forward pass, so hub rows stop being independently-trained free
-    parameters and gradient reaches the 4d rows by construction.
-
-    `on_epoch` (v7 §4.2, default None): called at the end of every epoch as
-    `on_epoch(epoch, Z_eff, {target_id: raw_loss})` — lets a caller track
-    per-family loss trajectories against an external reference metric
-    without this function needing to know anything about what that metric
-    is (see train_shared_cosine_embedding.py's `--eval-every`).
+    Options
+    -------
+    dynamic_reweight
+        Rescale each target's weight by running_loss(epoch 1) /
+        running_loss(epoch) (EMA, clamped to reweight_max_ratio), so that every
+        target's contribution stays near its initial share instead of fading as
+        it is fitted. Used together with the margins in operator_data.margins,
+        which switch a target off once it falls below its floor.
+    reweight_stall_ratio, reweight_stall_min_improvement
+        Above reweight_stall_ratio, the ratio may only keep growing while the
+        loss improves by at least reweight_stall_min_improvement; otherwise it is
+        capped and the target is flagged as stalled (stall_capped_ratio).
+    hub_aggregation
+        (N, N) matrix with hub_aggregation @ Z = Z on 4d rows and the mean of the
+        4d descendants on hub rows (operator_embedding.build_hub_aggregation_matrix).
+        Applied once per epoch before the observation models, so hub rows are
+        functions of their descendants rather than free parameters.
+    on_epoch
+        Callback on_epoch(epoch, Z_eff, {target_id: raw_loss}) at the end of each
+        epoch (used by --eval-every).
     """
     params = [Z] + [p for model in observation_models.values() for p in model.parameters()]
     optimizer = torch.optim.Adam(params, lr=lr)
@@ -257,7 +188,7 @@ def train_joint(
         per_layer_hinged: dict[str, float] = {}
 
         # Computed once per epoch, not once per target — hub_aggregation is
-        # identical across every layer (v7 §1.2).
+        # identical across every target.
         Z_eff = hub_aggregation @ Z if hub_aggregation is not None else Z
 
         for lname in operator_data.targets:

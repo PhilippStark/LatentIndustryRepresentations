@@ -1,84 +1,65 @@
 """
 P04_entry.py
-========================
-Tests the relatedness-density hypothesis (Hidalgo et al. 2007 "Product Space";
-Neffke, Henning & Boschma 2011): does a region's chance of acquiring a NEW
-industry depend on how close that industry already sits to the region's
-existing employment structure in embedding space?
+============
+Relatedness density and industry entry (Hidalgo et al. 2007; Neffke, Henning
+& Boschma 2011): is a municipality more likely to gain an industry that sits
+close to its existing employment structure in the learned space? Requires the
+restricted SCB individual-level register panel (except with --from-cache).
 
-This fixes a conflation in P04_diversification.py's design: that
-script regressed AGGREGATE industry growth on a REGION-LEVEL diversity score,
-which tests whether diverse regions grow faster overall — not whether new
-economic activity specifically emerges in industries that are related (or
-unrelated) to what already exists locally. This script tests the latter
-directly, at the level of individual (industry, municipality, year) entry
-events.
+Candidates and outcome
+----------------------
+Candidates are all (municipality, industry, year t) cells with zero
+employment in t.
 
-Candidate-entry set
---------------------
-The set of potential entrants: every (municipality, industry, year=t)
-candidate observation where the industry has ZERO employment at t.
-P04_growth.py's continuous softmax density naturally extends
-to absent industries — it only ever sums over OTHER industries'
-employment-weighted similarity — so it is exactly the industry's
-"relatedness density" to whatever already exists locally, whether or not the
-industry itself is present.
+  entry_industry = 1 if the industry's employment in t+1 reaches a
+                   non-negligible local level: within ± --sd-mult SDs
+                   (arcsinh scale) of the other active industries' employment
+                   in that municipality at t+1.
 
-Entry outcome
--------------
-  entry_industry = the industry's regional employment jumps from zero to a
-                    level that is no longer negligible by local standards:
-                    within ± --sd-mult SDs (arcsinh scale) of the other
-                    active industries' regional employment at t+1.
+Density
+-------
+For municipality m, industry j and year t, density is the employment-weighted
+mean cosine similarity between j and the industries present in m, leaving j
+itself out (latent_industry.regional.density):
 
-This is the ONLY outcome regressed and plotted here — the outcome of interest
-is industry-level entry, not firm-level entry.
+  D_{j,m,t} = Σ_{i≠j} w_{i,m,t} cos(z_i, z_j) / Σ_{i≠j} w_{i,m,t}
 
---stratify-firm-size (optional): does NOT add a firm-level outcome. It builds
-an establishment-level panel purely to TAG each candidate cell with whether a
-qualifying new establishment of a given size tercile (small/medium/large, by
-the establishment's own worker count) triggered it, then regresses
-  entry_industry_<tier> = entry_industry AND has_new_estab_<tier>
-against density, separately per tier. All three tiers share the exact same
-negative (no-entry) sample, so each tier's regression reads as "does density
-predict a significant entry that happens to be driven by a small/medium/large
-entrant", against the same base rate. Reported and plotted separately from
-the main entry_industry figure.
+with w = log(1 + employment) in the main specification D^{A,log}
+(--density-var ew --log-employment-weights). Robustness variants:
+--no-log-employment-weights (raw employment, D^A) and --density-var geo
+(geometric-mean analogue, D^G / D^{G,log}); non-baseline variants get a
+filename suffix (_ew_raw, _geo_log, _geo_raw).
 
-Test
-----
-Linear probability model:  entry ~ density  (1-SD standardised), absorbing
-industry + municipality + year fixed effects via triple demeaning (separate
-additive municipality and year effects, not an interacted municipality×year
-term — the more standard two-way panel FE spec) — density varies WITHIN a
-municipality-year by industry (unlike the region-level score in
-P04_diversification.py), so the original demeaning approach from
-P04_growth.py applies directly and is NOT subject to the collinearity
-problem that script's region-level regressor had with a muni×year FE. SE
-clustered by municipality.
+Regression
+----------
+Linear probability model, outcome ~ density (standardised by its pooled SD),
+with municipality×year and industry fixed effects absorbed exactly and SE
+clustered by municipality and industry (latent_industry.regional.fixed_effects).
+Estimated separately per classification period (SNI92, SNI02, SNI07): code
+strings overlap across versions but denote different industries, so periods
+are never pooled. Year-specific effects come from density × base-year
+interactions in the same model. R02_fixed_effects_robustness.py compares
+alternative fixed-effects specifications.
 
-SNI92/SNI02/SNI07 code strings overlap heavily across classification periods
-(e.g. 488 of SNI92's 505 codes also appear in SNI02's own code list) but refer
-to different classification vintages — a code never actually carries over
-from one period to the next. Pooling them under one "industry" fixed effect
-would treat a 1995 code and a 2003 code that happen to share the same digits
-as the same FE level. The regression is therefore run separately within each
-classification period (SNI92, SNI02, SNI07) — never pooled across periods.
+Options
+-------
+  --stratify-firm-size  splits entry by the size tercile of the new
+                        establishment that triggers it (establishments with
+                        more than --min-workers workers and at least
+                        --min-worker-ratio of local employment); same
+                        candidate set, separate figure and table
+  --sd-mult-sweep       re-runs the regression for several --sd-mult values
+  --from-cache          re-estimates and replots from the cached panel (no microdata)
 
---stratify-firm-size's qualifying-establishment filter uses --min-workers as
-an absolute headcount floor, which is not a meaningful bar in a big
-municipality (e.g. Stockholm) where 5 workers is nothing. --min-worker-ratio
-adds an optional second floor expressed as a fraction of the municipality's
-total workforce in that year — e.g. 0.001 requires the new establishment to
-be at least 0.1% of local employment. Defaults to 0.0 (disabled, i.e.
---min-workers alone applies).
+Outputs
+-------
+  results/regional_entry/{run}{suffix}_{entry.png, summary.csv, year_coefs.csv}
+  <LATENT_DATA_ROOT>/processed/downstream_outcomes/entry/{run}{suffix}_panel.parquet
 
-Usage
------
-  python scripts/regional/P04_entry.py
-  python scripts/regional/P04_entry.py --run-name graph_kl --min-workers 5 --sd-mult 2.0
-  python scripts/regional/P04_entry.py --stratify-firm-size
-  python scripts/regional/P04_entry.py --stratify-firm-size --min-worker-ratio 0.001
+Usage (main run)
+----------------
+  python scripts/regional/P04_entry.py --run-name shared_cosine_v16
+  python scripts/regional/P04_entry.py --run-name shared_cosine_v16 --from-cache
 """
 
 import argparse
@@ -89,18 +70,19 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import matplotlib.pyplot as plt
-import statsmodels.api as sm
 
 project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root / "src"))
 
 from latent_industry.common.paths import EMBEDDING_DIR, PROCESSED_DATA_DIR
 from latent_industry.common.municipalities import harmonization_table, load_municipality_crosswalk
+from latent_industry.regional.fixed_effects import density_effect, standardise_density
+from latent_industry.regional.reporting import report_density_regressions
 from latent_industry.regional.density import (
     load_sni_embeddings, make_softmax_kernel, cosine_matrix, employment_weighted_density,
     geometric_mean_employment_weighted_density, empl_matrix as _shared_empl_matrix,
 )
-from latent_industry.regional.regional_figures import plot_density_effect_summary, plot_density_effect_by_tier
+from latent_industry.regional.regional_figures import plot_density_effect_by_tier
 
 DATA_ROOT    = Path("/lunarc/nobackup/projects/lu2025-17-39")
 INDIVID_PATH = DATA_ROOT / "SCB" / "Preprocessed" / "individ_cleaned_1990-2019.parquet"
@@ -134,11 +116,10 @@ COLOR         = "crimson"
 # ── CLI ───────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
-                    help="Embedding run (from train_sentence_embedding.py --run-name).")
+                    help="Embedding run under EMBEDDING_DIR (train_shared_cosine_embedding.py --run-name).")
 parser.add_argument("--out-suffix", default="",
                     help="Appended to OUT_NAME (output filename prefix) without touching "
-                         "--run-name, so an investigative run (e.g. a fixed-effects spec "
-                         "change) never overwrites this run's already-published outputs.")
+                         "--run-name, so variant runs do not overwrite the main outputs.")
 parser.add_argument("--tau", type=float, default=DEFAULT_TAU,
                     help="Softmax temperature for the relatedness-density kernel.")
 parser.add_argument("--density-var", default="ew", choices=["softmax", "ew", "geo"],
@@ -214,6 +195,13 @@ elif args.density_var == "ew" and not args.log_employment_weights:
     OUT_NAME += "_ew_raw"
 OUT_NAME += args.out_suffix
 
+SUMMARY_EXTRA = {
+    "run": args.run_name, "density_var": args.density_var,
+    "log_employment_weights": args.log_employment_weights, "tau": args.tau,
+    "min_workers": args.min_workers, "min_worker_ratio": args.min_worker_ratio,
+    "sd_mult": args.sd_mult,
+}
+
 print(f"Run: {args.run_name}   density_var={args.density_var}   tau={args.tau}   "
       f"min_workers>{args.min_workers}   min_worker_ratio>={args.min_worker_ratio:.4%}   "
       f"sd_mult={args.sd_mult}   stratify_firm_size={args.stratify_firm_size}")
@@ -224,40 +212,21 @@ if SD_MULT_SWEEP:
 
 
 if args.from_cache:
-    print(f"\n--from-cache: replotting from cached {OUT_DIR}/{OUT_NAME}_panel.parquet + "
-          f"{results_dir}/{OUT_NAME}_{{year_coefs.csv,summary.csv}} — skipping SCB microdata "
-          f"load and regressions entirely.")
-    _panel_path   = OUT_DIR / f"{OUT_NAME}_panel.parquet"
-    _year_path    = results_dir / f"{OUT_NAME}_year_coefs.csv"
-    _summary_path = results_dir / f"{OUT_NAME}_summary.csv"
-    for _p in (_panel_path, _year_path, _summary_path):
-        if not _p.exists():
-            raise SystemExit(f"--from-cache requires {_p} — run this script without "
-                              f"--from-cache once first.")
-
-    _panel   = pd.read_parquet(_panel_path)
-    _year_df = pd.read_csv(_year_path)
-    _summary = pd.read_csv(_summary_path)
-    _periods_order = list(dict.fromkeys(_panel["period"]))
-
-    _results: dict[str, dict] = {}
-    for _, _row in _summary.iterrows():
-        _coef, _se = float(_row[f"{OUTCOME}_coef"]), float(_row[f"{OUTCOME}_se"])
-        _results[_row["period"]] = {
-            "coef": _coef, "se": _se, "pval": float(_row[f"{OUTCOME}_pval"]),
-            "partial_r": float(_row[f"{OUTCOME}_r"]),
-            "pct_of_baseline": float(_row[f"{OUTCOME}_pct_of_baseline"]),
-            "rate": float(_row[f"{OUTCOME}_rate"]),
-            # Exact statsmodels conf_int wasn't cached in summary.csv — reuse
-            # the same 1.96*SE normal approximation the plot itself uses.
-            "ci_low": _coef - 1.96 * _se, "ci_high": _coef + 1.96 * _se,
-        }
-
-    _fig_path = plot_density_effect_summary(
-        _panel, _year_df, _results, _periods_order, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
-        results_dir / f"{OUT_NAME}_entry.png",
+    print(f"\n--from-cache: re-estimating from {OUT_DIR}/{OUT_NAME}_panel.parquet "
+          f"(no SCB microdata needed).")
+    _panel_path = OUT_DIR / f"{OUT_NAME}_panel.parquet"
+    if not _panel_path.exists():
+        raise SystemExit(f"--from-cache requires {_panel_path} — run this script without "
+                          f"--from-cache once first.")
+    _panel = pd.read_parquet(_panel_path)
+    standardise_density(_panel)
+    report_density_regressions(
+        _panel, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
+        fig_path=results_dir / f"{OUT_NAME}_entry.png",
+        summary_path=results_dir / f"{OUT_NAME}_summary.csv",
+        year_path=results_dir / f"{OUT_NAME}_year_coefs.csv",
+        summary_extra=SUMMARY_EXTRA,
     )
-    print(f"\n  → {_fig_path}")
     print("\nDone (--from-cache).")
     sys.exit(0)
 
@@ -512,102 +481,31 @@ print(f"  entry_industry rate: {panel['entry_industry'].mean():.4%}")
 print(f"    mean density | entry_industry=1: {panel.loc[panel['entry_industry']==1, 'density'].mean():.5f}")
 print(f"    mean density | entry_industry=0: {panel.loc[panel['entry_industry']==0, 'density'].mean():.5f}")
 
-_sd_density = float(panel["density"].std())
-panel["density_std"] = panel["density"] / _sd_density
-print(f"\nDensity pre-standardised (÷ SD = {_sd_density:.6f}, pooled across all "
-      "periods purely as a fixed unit) — β reads as Δ P(entry) per 1-SD "
-      "increase in density")
+_sd_density = standardise_density(panel)
+print(f"\nDensity standardised by its pooled SD ({_sd_density:.6f}): β is the change in "
+      f"P({OUTCOME}) per 1-SD increase in density")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5+6. Per-classification-period demeaning and regression — linear
-#    probability model with industry + municipality + year FE via triple
-#    demeaning (separate additive municipality and year effects, not an
-#    interacted muni×year term). SNI92/SNI02/SNI07 code strings overlap
-#    heavily (e.g. 488 of SNI92's 505 codes also appear in SNI02's own code
-#    list) but refer to different classification vintages — pooling them
-#    under one "industry" fixed effect would treat a 1995 code and a 2003
-#    code that happen to share the same digits as the same FE level. Each
-#    classification period is therefore demeaned and regressed
-#    independently; results are never pooled across periods.
+# 5. Density regressions per classification period (and year-specific slopes):
+#    municipality×year + industry fixed effects, SE clustered by municipality
+#    and industry (latent_industry.regional.fixed_effects).
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def demean(df: pd.DataFrame, col: str, by) -> pd.Series:
-    return df[col] - df.groupby(by)[col].transform("mean")
-
-def run_ols(y: pd.Series, x: pd.Series, cluster: pd.Series) -> dict:
-    X = sm.add_constant(x.values)
-    if cluster.nunique() > 1:
-        res = sm.OLS(y.values, X).fit(
-            cov_type="cluster", cov_kwds={"groups": cluster.values},
-        )
-    else:
-        res = sm.OLS(y.values, X).fit(cov_type="HC3")
-    ci = res.conf_int()
-    r2 = float(res.rsquared)
-    # Single-regressor OLS: R² is the squared (partial) correlation between
-    # x and y net of the FE — taking its root with the coefficient's sign
-    # gives a correlation-like number in [-1, 1], unlike the raw coef, whose
-    # scale depends on how much within-FE variance x has left (NOT directly
-    # comparable across periods or embedding runs with different density
-    # distributions).
-    partial_r = float(np.sign(res.params[1]) * np.sqrt(r2))
-    return {
-        "coef":      float(res.params[1]),
-        "se":        float(res.bse[1]),
-        "t":         float(res.tvalues[1]),
-        "pval":      float(res.pvalues[1]),
-        "ci_low":    float(ci[1, 0]),
-        "ci_high":   float(ci[1, 1]),
-        "n":         int(res.nobs),
-        "r2":        r2,
-        "partial_r": partial_r,
-    }
-
-print("\n" + "=" * 60)
-print("Relatedness density → entry  (per classification period, industry + "
-      "municipality + year FE, SE clustered by muni)")
-print("=" * 60)
-
-periods_order = list(dict.fromkeys(panel["period"]))   # preserve PERIODS order
-dm_frames: list[pd.DataFrame] = []
-results: dict[str, dict] = {}
-
-for period_name in periods_order:
-    sub = panel[panel["period"] == period_name].copy()
-    for var in [OUTCOME, "density_std"]:
-        sub[f"{var}_r1"] = demean(sub, var,         "municipality")
-        sub[f"{var}_r2"] = demean(sub, f"{var}_r1",  "year")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_r2",  "industry")
-
-    within_fe_sd = float(sub["density_std_dm"].std())
-    print(f"\n  -- {period_name} --  (within-FE density_std SD={within_fe_sd:.6f}, "
-          f"{within_fe_sd**2:.4%} of raw variance retained)")
-
-    res  = run_ols(sub[f"{OUTCOME}_dm"], sub["density_std_dm"], sub["municipality"])
-    rate = float(sub[OUTCOME].mean())
-    # β in raw probability points is hard to judge against a base rate this
-    # low — express it relative to the outcome's own baseline rate too, as a
-    # second, scale-free read (doesn't change coef/SE/p, just adds context).
-    res["pct_of_baseline"] = res["coef"] / rate * 100 if rate > 0 else float("nan")
-    res["rate"] = rate
-    results[period_name] = res
-    print(f"    entry_industry (jumps to significant local size)")
-    print(f"      coef={res['coef']:+.6f}  SE={res['se']:.6f}"
-          f"  t={res['t']:.3f}  p={res['pval']:.3e}")
-    print(f"      N={res['n']:,}  R²={res['r2']:.5f}  partial r={res['partial_r']:+.4f}")
-    print(f"      baseline rate={rate:.4%}  →  β = {res['pct_of_baseline']:+.1f}% of baseline"
-          f"  per 1-SD density")
-
-    dm_frames.append(sub)
-
-panel = pd.concat(dm_frames, ignore_index=True)
+results, year_df = report_density_regressions(
+    panel, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
+    fig_path=results_dir / f"{OUT_NAME}_entry.png",
+    summary_path=results_dir / f"{OUT_NAME}_summary.csv",
+    year_path=results_dir / f"{OUT_NAME}_year_coefs.csv",
+    summary_extra=SUMMARY_EXTRA,
+)
+periods_order = list(results)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 6b. Optional (--stratify-firm-size): entry_industry gated by entering
+# 5b. Optional (--stratify-firm-size): entry_industry gated by entering
 #    establishment size tercile, regressed against density separately — same
-#    candidate panel, industry + municipality + year FE, density_std as
+#    candidate panel, main specification, density_std as
 #    above, just a different outcome column per tier. Reported and plotted
 #    on its own (not folded into the main entry_industry figure) so it
 #    doesn't complicate that figure's panels.
@@ -621,18 +519,12 @@ if firmsize_outcomes:
     print("=" * 60)
 
     for period_name in periods_order:
-        sub = panel[panel["period"] == period_name].copy()
-        for var in firmsize_outcomes + ["density_std"]:
-            sub[f"{var}_r1"] = demean(sub, var,         "municipality")
-            sub[f"{var}_r2"] = demean(sub, f"{var}_r1",  "year")
-            sub[f"{var}_dm"] = demean(sub, f"{var}_r2",  "industry")
+        sub = panel[panel["period"] == period_name]
 
         firmsize_results[period_name] = {}
         for outcome in firmsize_outcomes:
-            res  = run_ols(sub[f"{outcome}_dm"], sub["density_std_dm"], sub["municipality"])
-            rate = float(sub[outcome].mean())
-            res["pct_of_baseline"] = res["coef"] / rate * 100 if rate > 0 else float("nan")
-            res["rate"] = rate
+            res  = density_effect(sub, outcome)
+            rate = res["rate"]
             firmsize_results[period_name][outcome] = res
             print(f"    {outcome:<24} coef={res['coef']:+.6f}  SE={res['se']:.6f}"
                   f"  p={res['pval']:.3e}  N={res['n']:,}  baseline rate={rate:.4%}"
@@ -674,87 +566,23 @@ if firmsize_outcomes:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 7. Year-by-year regression — already period-safe: a calendar year never
-#    spans two classification periods, so the within-year industry FE never
-#    mixes code systems even though it isn't filtered by period explicitly.
-# ═══════════════════════════════════════════════════════════════════════════════
-
-print("\n" + "=" * 60)
-print("Year-by-year coefficients  (density → entry_industry)")
-print("=" * 60)
-
-year_records: list[dict] = []
-for year, sub in panel.groupby("year"):
-    sub = sub.copy()
-    for var in [OUTCOME, "density_std"]:
-        sub[f"{var}_dm"] = demean(sub, var, "municipality")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_dm", "industry")
-    r = run_ols(sub[f"{OUTCOME}_dm"], sub["density_std_dm"], sub["municipality"])
-    r["year"] = int(year)
-    year_records.append(r)
-    print(f"  {year}→{year+1}:  entry_industry β={r['coef']:+.5f} (p={r['pval']:.2e})   N={r['n']:,}")
-
-year_df = pd.DataFrame(year_records).sort_values("year")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 8. Visualisations
-# ═══════════════════════════════════════════════════════════════════════════════
-
-_fig_path = plot_density_effect_summary(
-    panel, year_df, results, periods_order, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
-    results_dir / f"{OUT_NAME}_entry.png",
-)
-print(f"\n  → {_fig_path}")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 9. Save outputs
+# 6. Save the panel
 # ═══════════════════════════════════════════════════════════════════════════════
 
 panel_out = panel[["period", "year", "municipality", "industry", "density", OUTCOME]]
 panel_out.to_parquet(OUT_DIR / f"{OUT_NAME}_panel.parquet", index=False)
 print(f"  → {OUT_DIR / f'{OUT_NAME}_panel.parquet'}  ({len(panel):,} rows)")
 
-year_df.to_csv(results_dir / f"{OUT_NAME}_year_coefs.csv", index=False)
-
-summary_rows = []
-for period_name in periods_order:
-    in_period = panel["period"] == period_name
-    row = {
-        "run":               args.run_name,
-        "density_var":       args.density_var,
-        "log_employment_weights": args.log_employment_weights,
-        "period":            period_name,
-        "tau":               args.tau,
-        "min_workers":       args.min_workers,
-        "min_worker_ratio":  args.min_worker_ratio,
-        "sd_mult":           args.sd_mult,
-        "n_obs":             int(in_period.sum()),
-        "n_municipalities":  len(all_municipalities),
-        f"{OUTCOME}_rate":            panel.loc[in_period, OUTCOME].mean(),
-        f"{OUTCOME}_coef":            results[period_name]["coef"],
-        f"{OUTCOME}_se":              results[period_name]["se"],
-        f"{OUTCOME}_pval":            results[period_name]["pval"],
-        f"{OUTCOME}_r":               results[period_name]["partial_r"],
-        f"{OUTCOME}_pct_of_baseline": results[period_name]["pct_of_baseline"],
-    }
-    summary_rows.append(row)
-pd.DataFrame(summary_rows).to_csv(results_dir / f"{OUT_NAME}_summary.csv", index=False)
-
-print(f"  → {results_dir}/  ({OUT_NAME}_year_coefs.csv, _summary.csv)  "
-      f"+ {OUT_DIR}/  ({OUT_NAME}_panel.parquet)")
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 10. Appendix robustness check: sd_mult sweep (only if --sd-mult-sweep given)
+# 7. Appendix robustness check: sd_mult sweep (only if --sd-mult-sweep given)
 #    sd_mult is the parameter most worth stress-testing here — unlike tau (which
 #    only reweights the density regressor), sd_mult defines the OUTCOME itself
 #    (which zero-to-positive jumps count as a "significant" entry at all), so it
 #    directly determines which rows enter the regression, not just how one
 #    predictor is constructed. density and M_t1 don't depend on sd_mult, so the
 #    sweep reuses the matrices cached in section 4 and only redoes the (cheap)
-#    outcome recomputation + demeaning + OLS per value — no re-read of the
+#    outcome recomputation + regression per value — no re-read of the
 #    individual panel and no re-computation of embeddings/kernels.
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -780,16 +608,9 @@ if SD_MULT_SWEEP:
         sweep_panel = pd.concat(frames, ignore_index=True)
 
         for period_name in periods_order:
-            sub  = sweep_panel[sweep_panel["period"] == period_name].copy()
-            rate = float(sub["entry_industry"].mean())
-            sub["entry_r1"] = demean(sub, "entry_industry", "municipality")
-            sub["entry_r2"] = demean(sub, "entry_r1",        "year")
-            sub["entry_dm"] = demean(sub, "entry_r2",        "industry")
-            sub["dens_r1"]  = demean(sub, "density_std",     "municipality")
-            sub["dens_r2"]  = demean(sub, "dens_r1",          "year")
-            sub["dens_dm"]  = demean(sub, "dens_r2",          "industry")
-            res = run_ols(sub["entry_dm"], sub["dens_dm"], sub["municipality"])
-            pct_of_baseline = res["coef"] / rate * 100 if rate > 0 else float("nan")
+            sub  = sweep_panel[sweep_panel["period"] == period_name]
+            res = density_effect(sub, "entry_industry")
+            rate, pct_of_baseline = res["rate"], res["pct_of_baseline"]
             sweep_records.append({
                 "run": args.run_name, "density_var": args.density_var,
                 "period": period_name, "sd_mult": sd_mult_val,

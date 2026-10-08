@@ -1,25 +1,25 @@
-"""build_layer_transition_matrices.py — stage 1 of the graph pipeline, run
-ONCE per --name.
+"""
+build_layer_transition_matrices.py
+==================================
+Stage 1 of the graph pipeline: builds the node index of the shared industry
+graph (4-digit codes of SNI92/SNI02/SNI07 plus SNI 2007 hierarchy hubs) and
+one row-stochastic transition matrix per relational view (labor, nace_text,
+io, hierarchy, transition, ownership; see src/latent_industry/graph/layers.py),
+together with the repulsion matrix of officially excluded pairs.
 
-Builds the node index and one row-stochastic transition matrix per
-independent evidence layer (labor, nace_text, io, hierarchy, transition,
-ownership — see src/latent_industry/graph/layers.py), plus the repulsion matrix
-(verified "officially excludes" pairs). None of this depends on any
-diffusion/combination parameter, so it doesn't need rebuilding just because
-you're retuning how the layers get combined — see
-scripts/graph/build_multilayer_diffusion.py (stage 2) for that.
+Inputs: the relatedness tables from scripts/data/ (labor, IO, ownership),
+NACE text embeddings and SNI mappings/crosswalks in metadata/.
 
-Usage
------
-  python scripts/graph/build_layer_transition_matrices.py --name multilayer_v1
+Outputs (<LATENT_DATA_ROOT>/processed/, see src/latent_industry/graph/artifacts.py)
+---------------------------------------------------------------------------------
+  layers_{name}.npz                     per-view P / avail / domain, plus S_neg
+  graph_nodes_{name}.parquet            node table
+  graph_edges_{name}.parquet            edges of every view, with a train/val/test split column
+  graph_negative_edges_{name}.parquet   negative NACE-text pairs (diagnostics only)
 
-Outputs (under <LUNARC_DATA_ROOT>/processed/, see src/latent_industry/graph/artifacts.py)
--------
-  layers_{name}.npz                     per-layer P/avail/domain + S_neg
-  graph_nodes_{name}.parquet            full node table
-  graph_edges_{name}.parquet            every layer's raw edges, with a leakage-safe
-                                         train/val/test split column
-  graph_negative_edges_{name}.parquet   diagnostic-only negative NACE cosine pairs
+Usage (main run)
+----------------
+  python scripts/graph/build_layer_transition_matrices.py --name layers_v1
 """
 
 import argparse
@@ -45,7 +45,7 @@ PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", required=True, help="Version name used in all output filenames.")
 parser.add_argument("--nace-embedding-file", default="nace_embeddings_openai.npz",
-                     help="Precomputed NACE embeddings in metadata/ (see build_nace_embeddings.py).")
+                     help="Precomputed NACE description embeddings in PROCESSED_DATA_DIR.")
 parser.add_argument("--nace-sharpen", type=float, default=1.0,
                      help="NACE cosine similarity power applied before row-normalising (1.0 = no-op). "
                           "See layers.build_nace_layer's docstring for why only this one layer needs it.")
@@ -163,4 +163,4 @@ print(f"  graph_nodes_{args.name}.parquet            ({len(ni.nodes)} nodes)")
 print(f"  graph_edges_{args.name}.parquet            ({len(edges_df):,} edges)")
 print(f"  graph_negative_edges_{args.name}.parquet   ({len(negative_edges_df):,} diagnostic pairs)")
 print(f"  layer_sources_{args.name}.json")
-print("\nDone. Run build_multilayer_diffusion.py --name " + args.name + " next.")
+print("\nDone. Run build_layer_diffusion_targets.py --name " + args.name + " next.")

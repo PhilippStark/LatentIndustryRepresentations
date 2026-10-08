@@ -1,75 +1,69 @@
 """
 P04_startup_entry.py
-========================
-Implements Grillitsch (2021, Strategic Entrepreneurship Journal,
-https://sms.onlinelibrary.wiley.com/doi/full/10.1002/sej.1375)'s definition of
-a genuine new-firm "startup" — as opposed to P04_entry.py's crude entry_firm
-proxy (any new establishment with > N workers, regardless of whether it is a
-spin-off, a merger remnant, or a reclassification) — and tests the same
-relatedness-density hypothesis (Hidalgo et al. 2007; Neffke, Henning &
-Boschma 2011) against it: does a genuinely new firm's chance of forming in a
-given (municipality, industry) cell favour industries that already sit close
-to the region's existing employment structure?
+====================
+Relatedness density and start-up entry: is a genuinely new firm more likely
+to be founded in an industry that sits close to the municipality's existing
+employment structure? Requires the restricted SCB register data (individual
+panel and FAD firm demography), except with --from-cache.
 
-Startup definition (all conditions on the founding OrgNr/year)
-----------------------------------------------------------------
-  1. Kvar in KVAR_STARTUP_CODES — a genuine "new" firm-demography event in
-     FAD_1990-2019.parquet, not a merger-driven "new" entity (Kvar 05/09,
-     excluded) and not a surviving/continuing firm (Kvar 11/12/13, excluded).
-     See metadata/mapping_Kvar.json (SCB's FAD Kvar codebook): 01/02/03 are
-     "new" under the original methodology, 06/07/08 are their 2004
-     methodology-adjustment counterparts. Kvar=03 ("new, no predecessor
-     found, zero employees the previous year") never actually fires in this
-     1990-2019 extract — the column's realised value set is
-     {1,2,5,6,7,8,9,11,12,13}, no 3 — but is kept in the filter for
-     conceptual completeness (harmless if it never matches; confirmed with
-     the user rather than silently dropped).
-  2. OrgNr absent in year t-1 in individ_cleaned_1990-2019.parquet. This is
-     specifically "absent the immediately preceding year", not "never seen
-     before anywhere in the panel" (a different, stricter condition) — a
-     firm that had a genuine gap year would still qualify. Year 1990
-     candidates can never satisfy this (there is no 1989 row in the panel)
-     and are excluded (SAMPLE_START_YEAR).
-  3. Exactly one CfarNr for that OrgNr in year t (single-establishment firm)
-     — computed directly from individ, not trusted from FAD's own CfarNr
-     field (FAD only supplies the Kvar-coded transition; individ is the
-     source of truth for the microdata-based checks per the definition).
-  4. Founder size <= --max-founder-size employees (default 10) — headcount
-     at that OrgNr in year t, from individ.
-  5. Optional (--max-growth-ratio, default 0 = disabled): exclude firms
-     whose (t+1 headcount) / (founder size) ratio exceeds the given
-     multiple — Grillitsch (2021)'s robustness check against implausible
-     ramps that more likely reflect mis-coded M&A activity than organic
-     growth. A firm that disappears at t+1 (no headcount) is NOT excluded
-     by this filter — an undefined ratio is not evidence of an implausible
-     jump.
+Start-up definition (Grillitsch 2021), on the founding OrgNr in year t
+-----------------------------------------------------------------------
+  1. FAD firm-demography code Kvar in KVAR_STARTUP_CODES {1, 2, 3, 6, 7, 8}
+     ("new" enterprise; mergers and continuing firms excluded; codebook in
+     metadata/mapping_Kvar.json).
+  2. The OrgNr is absent from the individual panel in t−1 (so 1990 cannot
+     qualify).
+  3. Exactly one establishment (CfarNr) in t.
+  4. At most --max-founder-size employees in t (default 10).
+  5. Optional: --max-growth-ratio excludes firms whose headcount in t+1
+     exceeds this multiple of the founding size (0 = off, default).
 
-Regional density test
+Candidates and outcome
 ----------------------
-Exactly P04_entry.py's design, reused rather than reinvented: relatedness-
-density kernel (softmax over cosine similarity, employment-share-weighted,
-self excluded), computed per classification period at year t; outcome
-("startup_entry") is whether a qualifying startup is born in that
-(industry, municipality) cell at t+1; linear probability model with
-industry + municipality + year FE via triple demeaning (separate additive
-municipality and year effects, not an interacted municipality×year term),
-SE clustered by municipality, run separately per SNI classification period
-(SNI92/SNI02/SNI07 — never pooled, for the same reason P04_entry.py never
-pools them: overlapping code strings across vintages are not the same
-industry).
+Same candidates as P04_entry.py: (municipality, industry, year t) cells with
+zero employment in t.
 
---include-entry-industry additionally reports P04_entry.py's own crude
-"industry emerges to non-negligible local size" outcome side by side, purely
-as a reference point for how much the compliant startup definition changes
-the answer relative to that cruder proxy — not because that outcome is
-itself of interest here. Off by default.
+  startup_entry = 1 if a qualifying start-up is founded in the cell in t+1.
 
-Usage
------
-  python scripts/regional/P04_startup_entry.py
-  python scripts/regional/P04_startup_entry.py --run-name graph_kl --max-founder-size 10
-  python scripts/regional/P04_startup_entry.py --max-growth-ratio 30
-  python scripts/regional/P04_startup_entry.py --include-entry-industry
+Density
+-------
+For municipality m, industry j and year t, density is the employment-weighted
+mean cosine similarity between j and the industries present in m, leaving j
+itself out (latent_industry.regional.density):
+
+  D_{j,m,t} = Σ_{i≠j} w_{i,m,t} cos(z_i, z_j) / Σ_{i≠j} w_{i,m,t}
+
+with w = log(1 + employment) in the main specification D^{A,log}
+(--density-var ew --log-employment-weights). Robustness variants:
+--no-log-employment-weights (raw employment, D^A) and --density-var geo
+(geometric-mean analogue, D^G / D^{G,log}); non-baseline variants get a
+filename suffix (_ew_raw, _geo_log, _geo_raw).
+
+Regression
+----------
+Linear probability model, outcome ~ density (standardised by its pooled SD),
+with municipality×year and industry fixed effects absorbed exactly and SE
+clustered by municipality and industry (latent_industry.regional.fixed_effects).
+Estimated separately per classification period (SNI92, SNI02, SNI07): code
+strings overlap across versions but denote different industries, so periods
+are never pooled. Year-specific effects come from density × base-year
+interactions in the same model. R02_fixed_effects_robustness.py compares
+alternative fixed-effects specifications.
+
+Options
+-------
+  --include-entry-industry  also report P04_entry.py's entry_industry outcome
+                            for comparison
+  --from-cache              re-estimate and replot from the cached panel (no microdata)
+
+Outputs
+-------
+  results/regional_startup_entry/{run}{suffix}_{startup_entry.png, summary.csv, year_coefs.csv}
+  <LATENT_DATA_ROOT>/processed/downstream_outcomes/startup_entry/{run}{suffix}_panel.parquet
+
+Usage (main run)
+----------------
+  python scripts/regional/P04_startup_entry.py --run-name shared_cosine_v16
 """
 
 import argparse
@@ -82,7 +76,6 @@ matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import polars as pl
-import statsmodels.api as sm
 
 project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root / "src"))
@@ -93,7 +86,8 @@ from latent_industry.regional.density import (
     load_sni_embeddings, make_softmax_kernel, cosine_matrix, employment_weighted_density,
     geometric_mean_employment_weighted_density, empl_matrix as _shared_empl_matrix,
 )
-from latent_industry.regional.regional_figures import plot_density_effect_summary
+from latent_industry.regional.fixed_effects import standardise_density
+from latent_industry.regional.reporting import report_density_regressions
 
 DATA_ROOT    = Path("/lunarc/nobackup/projects/lu2025-17-39")
 INDIVID_PATH = DATA_ROOT / "SCB" / "Preprocessed" / "individ_cleaned_1990-2019.parquet"
@@ -134,11 +128,10 @@ COLOR         = "seagreen"
 # ── CLI ───────────────────────────────────────────────────────────────────────
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
-                    help="Embedding run (from train_sentence_embedding.py --run-name).")
+                    help="Embedding run under EMBEDDING_DIR (train_shared_cosine_embedding.py --run-name).")
 parser.add_argument("--out-suffix", default="",
                     help="Appended to OUT_NAME (output filename prefix) without touching "
-                         "--run-name, so an investigative run (e.g. a fixed-effects spec "
-                         "change) never overwrites this run's already-published outputs.")
+                         "--run-name, so variant runs do not overwrite the main outputs.")
 parser.add_argument("--tau", type=float, default=DEFAULT_TAU,
                     help="Softmax temperature for the relatedness-density kernel.")
 parser.add_argument("--density-var", default="ew", choices=["softmax", "ew", "geo"],
@@ -199,42 +192,44 @@ print(f"Run: {args.run_name}   density_var={args.density_var}   tau={args.tau}  
       f"max_growth_ratio={args.max_growth_ratio}   include_entry_industry={args.include_entry_industry}")
 
 OUTCOMES = ["startup_entry"] + (["entry_industry"] if args.include_entry_industry else [])
+SUMMARY_EXTRA = {
+    "run": args.run_name, "density_var": args.density_var,
+    "log_employment_weights": args.log_employment_weights, "tau": args.tau,
+    "max_founder_size": args.max_founder_size, "max_growth_ratio": args.max_growth_ratio,
+}
+
+
+def report(panel: pd.DataFrame) -> None:
+    """Density regressions (main specification) for start-up entry and, with
+    --include-entry-industry, for the entry_industry reference outcome."""
+    report_density_regressions(
+        panel, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
+        fig_path=results_dir / f"{OUT_NAME}_startup_entry.png",
+        summary_path=results_dir / f"{OUT_NAME}_summary.csv",
+        year_path=results_dir / f"{OUT_NAME}_year_coefs.csv",
+        summary_extra=SUMMARY_EXTRA,
+    )
+    if "entry_industry" in OUTCOMES and "entry_industry" in panel.columns:
+        report_density_regressions(
+            panel, "entry_industry", "Observed entry rate",
+            "Effect on entry probability per 1-SD density (in %)", "steelblue",
+            fig_path=results_dir / f"{OUT_NAME}_entry_industry_reference.png",
+            summary_path=results_dir / f"{OUT_NAME}_entry_industry_reference_summary.csv",
+            year_path=results_dir / f"{OUT_NAME}_entry_industry_reference_year_coefs.csv",
+            summary_extra=SUMMARY_EXTRA,
+        )
 
 
 if args.from_cache:
-    print(f"\n--from-cache: replotting from cached {OUT_DIR}/{OUT_NAME}_panel.parquet + "
-          f"{results_dir}/{OUT_NAME}_{{year_coefs.csv,summary.csv}} — skipping SCB microdata "
-          f"load and regressions entirely.")
-    _panel_path   = OUT_DIR / f"{OUT_NAME}_panel.parquet"
-    _year_path    = results_dir / f"{OUT_NAME}_year_coefs.csv"
-    _summary_path = results_dir / f"{OUT_NAME}_summary.csv"
-    for _p in (_panel_path, _year_path, _summary_path):
-        if not _p.exists():
-            raise SystemExit(f"--from-cache requires {_p} — run this script without "
-                              f"--from-cache once first.")
-
-    _panel   = pd.read_parquet(_panel_path)
-    _year_df = pd.read_csv(_year_path)
-    _year_df = _year_df[_year_df["outcome"] == OUTCOME] if "outcome" in _year_df.columns else _year_df
-    _summary = pd.read_csv(_summary_path)
-    _periods_order = list(dict.fromkeys(_panel["period"]))
-
-    _results: dict[str, dict] = {}
-    for _, _row in _summary.iterrows():
-        _coef, _se = float(_row[f"{OUTCOME}_coef"]), float(_row[f"{OUTCOME}_se"])
-        _results[_row["period"]] = {
-            "coef": _coef, "se": _se, "pval": float(_row[f"{OUTCOME}_pval"]),
-            "partial_r": float(_row[f"{OUTCOME}_r"]),
-            "pct_of_baseline": float(_row[f"{OUTCOME}_pct_of_baseline"]),
-            "rate": float(_row[f"{OUTCOME}_rate"]),
-            "ci_low": _coef - 1.96 * _se, "ci_high": _coef + 1.96 * _se,
-        }
-
-    _fig_path = plot_density_effect_summary(
-        _panel, _year_df, _results, _periods_order, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
-        results_dir / f"{OUT_NAME}_startup_entry.png",
-    )
-    print(f"\n  → {_fig_path}")
+    print(f"\n--from-cache: re-estimating from {OUT_DIR}/{OUT_NAME}_panel.parquet "
+          f"(no SCB microdata needed).")
+    _panel_path = OUT_DIR / f"{OUT_NAME}_panel.parquet"
+    if not _panel_path.exists():
+        raise SystemExit(f"--from-cache requires {_panel_path} — run this script without "
+                          f"--from-cache once first.")
+    _panel = pd.read_parquet(_panel_path)
+    standardise_density(_panel)
+    report(_panel)
     print("\nDone (--from-cache).")
     sys.exit(0)
 
@@ -474,173 +469,26 @@ for outcome in OUTCOMES:
     print(f"    mean density | {outcome}=1: {panel.loc[panel[outcome]==1, 'density'].mean():.5f}")
     print(f"    mean density | {outcome}=0: {panel.loc[panel[outcome]==0, 'density'].mean():.5f}")
 
-_sd_density = float(panel["density"].std())
-panel["density_std"] = panel["density"] / _sd_density
-print(f"\nDensity pre-standardised (÷ SD = {_sd_density:.6f}, pooled across all "
-      "periods purely as a fixed unit) — β reads as Δ P(entry) per 1-SD "
-      "increase in density")
+_sd_density = standardise_density(panel)
+print(f"\nDensity standardised by its pooled SD ({_sd_density:.6f}): β is the change in "
+      f"P(start-up entry) per 1-SD increase in density")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 5+6. Per-classification-period demeaning and regression — linear
-#    probability model with industry + municipality + year FE via triple
-#    demeaning (separate additive municipality and year effects, not an
-#    interacted muni×year term). Never pooled across SNI92/SNI02/SNI07 (see
-#    module docstring).
+# 5. Density regressions per classification period (and year-specific slopes):
+#    municipality×year + industry fixed effects, SE clustered by municipality
+#    and industry (latent_industry.regional.fixed_effects).
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def demean(df: pd.DataFrame, col: str, by) -> pd.Series:
-    return df[col] - df.groupby(by)[col].transform("mean")
-
-def run_ols(y: pd.Series, x: pd.Series, cluster: pd.Series) -> dict:
-    X = sm.add_constant(x.values)
-    if cluster.nunique() > 1:
-        res = sm.OLS(y.values, X).fit(
-            cov_type="cluster", cov_kwds={"groups": cluster.values},
-        )
-    else:
-        res = sm.OLS(y.values, X).fit(cov_type="HC3")
-    ci = res.conf_int()
-    r2 = float(res.rsquared)
-    partial_r = float(np.sign(res.params[1]) * np.sqrt(r2))
-    return {
-        "coef":      float(res.params[1]),
-        "se":        float(res.bse[1]),
-        "t":         float(res.tvalues[1]),
-        "pval":      float(res.pvalues[1]),
-        "ci_low":    float(ci[1, 0]),
-        "ci_high":   float(ci[1, 1]),
-        "n":         int(res.nobs),
-        "r2":        r2,
-        "partial_r": partial_r,
-    }
-
-LABELS = {
-    "startup_entry":   "startup_entry  (start-up growth: new, single-establishment, <=10-employee firm)",
-    "entry_industry":  "entry_industry (jumps to significant local size — reference only)",
-}
-
-print("\n" + "=" * 60)
-print("Relatedness density → startup entry  (per classification period, industry + "
-      "municipality + year FE, SE clustered by muni)")
-print("=" * 60)
-
-periods_order = list(dict.fromkeys(panel["period"]))
-dm_frames: list[pd.DataFrame] = []
-results: dict[str, dict[str, dict]] = {}
-
-for period_name in periods_order:
-    sub = panel[panel["period"] == period_name].copy()
-    for var in OUTCOMES + ["density_std"]:
-        sub[f"{var}_r1"] = demean(sub, var,         "municipality")
-        sub[f"{var}_r2"] = demean(sub, f"{var}_r1",  "year")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_r2",  "industry")
-
-    within_fe_sd = float(sub["density_std_dm"].std())
-    print(f"\n  -- {period_name} --  (within-FE density_std SD={within_fe_sd:.6f}, "
-          f"{within_fe_sd**2:.4%} of raw variance retained)")
-
-    results[period_name] = {}
-    for outcome in OUTCOMES:
-        res  = run_ols(sub[f"{outcome}_dm"], sub["density_std_dm"], sub["municipality"])
-        rate = float(sub[outcome].mean())
-        res["pct_of_baseline"] = res["coef"] / rate * 100 if rate > 0 else float("nan")
-        res["rate"] = rate
-        results[period_name][outcome] = res
-        print(f"    {LABELS[outcome]}")
-        print(f"      coef={res['coef']:+.6f}  SE={res['se']:.6f}"
-              f"  t={res['t']:.3f}  p={res['pval']:.3e}")
-        print(f"      N={res['n']:,}  R²={res['r2']:.5f}  partial r={res['partial_r']:+.4f}")
-        print(f"      baseline rate={rate:.4%}  →  β = {res['pct_of_baseline']:+.1f}% of baseline"
-              f"  per 1-SD density")
-
-    dm_frames.append(sub)
-
-panel = pd.concat(dm_frames, ignore_index=True)
+report(panel)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# 7. Year-by-year regression
-# ═══════════════════════════════════════════════════════════════════════════════
-
-print("\n" + "=" * 60)
-print("Year-by-year coefficients  (density → " + ", ".join(OUTCOMES) + ")")
-print("=" * 60)
-
-year_records: list[dict] = []
-for year, sub in panel.groupby("year"):
-    sub = sub.copy()
-    period_name = sub["period"].iloc[0]
-    for var in OUTCOMES + ["density_std"]:
-        sub[f"{var}_dm"] = demean(sub, var, "municipality")
-        sub[f"{var}_dm"] = demean(sub, f"{var}_dm", "industry")
-    year_res = {}
-    for outcome in OUTCOMES:
-        r = run_ols(sub[f"{outcome}_dm"], sub["density_std_dm"], sub["municipality"])
-        r["year"], r["outcome"], r["period"] = int(year), outcome, period_name
-        year_records.append(r)
-        year_res[outcome] = r
-    msg = f"  {year}→{year+1}:  " + "   ".join(
-        f"{outcome} β={year_res[outcome]['coef']:+.5f} (p={year_res[outcome]['pval']:.2e})"
-        for outcome in OUTCOMES
-    )
-    print(msg + f"   N={year_res[OUTCOMES[0]]['n']:,}")
-
-year_df = pd.DataFrame(year_records).sort_values(["outcome", "year"])
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 8. Visualisation — the main paper figure covers startup_entry only; if
-#    --include-entry-industry is set, that reference outcome's regression
-#    still runs and is saved to the CSVs above, it's just not folded into
-#    this figure (the shared plotting function is single-outcome, matching
-#    P04_entry.py/P04_exit.py).
-# ═══════════════════════════════════════════════════════════════════════════════
-
-_startup_results = {p: results[p][OUTCOME] for p in periods_order}
-_startup_year_df = year_df[year_df["outcome"] == OUTCOME]
-_fig_path = plot_density_effect_summary(
-    panel, _startup_year_df, _startup_results, periods_order, OUTCOME, OUTCOME_LABEL, EFFECT_LABEL, COLOR,
-    results_dir / f"{OUT_NAME}_startup_entry.png",
-)
-print(f"\n  → {_fig_path}")
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 9. Save outputs
+# 6. Save the panel
 # ═══════════════════════════════════════════════════════════════════════════════
 
 panel_out = panel[["period", "year", "municipality", "industry", "density"] + OUTCOMES]
 panel_out.to_parquet(OUT_DIR / f"{OUT_NAME}_panel.parquet", index=False)
 print(f"  → {OUT_DIR / f'{OUT_NAME}_panel.parquet'}  ({len(panel):,} rows)")
-
-year_df.to_csv(results_dir / f"{OUT_NAME}_year_coefs.csv", index=False)
-
-summary_rows = []
-for period_name in periods_order:
-    in_period = panel["period"] == period_name
-    row = {
-        "run":                args.run_name,
-        "density_var":        args.density_var,
-        "log_employment_weights": args.log_employment_weights,
-        "period":             period_name,
-        "tau":                args.tau,
-        "max_founder_size":   args.max_founder_size,
-        "max_growth_ratio":   args.max_growth_ratio,
-        "n_obs":              int(in_period.sum()),
-        "n_municipalities":   len(all_municipalities),
-    }
-    for outcome in OUTCOMES:
-        row[f"{outcome}_rate"]            = panel.loc[in_period, outcome].mean()
-        row[f"{outcome}_coef"]            = results[period_name][outcome]["coef"]
-        row[f"{outcome}_se"]              = results[period_name][outcome]["se"]
-        row[f"{outcome}_pval"]            = results[period_name][outcome]["pval"]
-        row[f"{outcome}_r"]               = results[period_name][outcome]["partial_r"]
-        row[f"{outcome}_pct_of_baseline"] = results[period_name][outcome]["pct_of_baseline"]
-    summary_rows.append(row)
-pd.DataFrame(summary_rows).to_csv(results_dir / f"{OUT_NAME}_summary.csv", index=False)
-
-print(f"  → {results_dir}/  ({OUT_NAME}_year_coefs.csv, _summary.csv)  "
-      f"+ {OUT_DIR}/  ({OUT_NAME}_panel.parquet)")
 
 print("\nDone.")

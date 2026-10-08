@@ -1,53 +1,24 @@
 """
 P05_opportunity_space.py
-=========================
-Builds the paper's companion interactive figure: a t-SNE map of every SNI
-industry (all three classification vintages, embedded jointly in ONE t-SNE
-fit so positions are directly comparable across eras), with a dropdown to
-pick a municipality (by name) and a slider to pick a year (1990-2019). For
-the selected (municipality, year), every industry the municipality ALREADY
-HAS is colored by its relatedness density to the rest of that municipality's
-existing employment structure — the same D^{A,log} baseline definition used
-by P04_entry.py / P04_exit.py / etc. (log-employment-weighted mean cosine
-similarity, leave-one-out) — i.e. how well-embedded that existing industry
-is in the local mix. Industries the municipality does NOT yet have are
-shown as flat gray dots (no density on the colour scale). A background
-field (client-side kernel-smoothed heatmap, see computeField() in the JS)
-interpolates present industries' density across the whole map for a
-continuous "coherence landscape" read, with the individual dots on top for
-per-industry hover.
+========================
+Interactive companion figure: a joint t-SNE map of all industries of the
+three classification versions, with a municipality dropdown and a year
+slider (1990–2019). For the selected municipality and year, industries
+present in the municipality are coloured by their density D^{A,log} (as in
+P04_entry.py) with respect to the rest of the local employment structure;
+absent industries are grey. A kernel-smoothed background field interpolates
+the density of present industries across the map.
 
-Density is still computed for EVERY industry, present or not (unlike the
-P04_*.py candidate-entry panels, which only keep industries ABSENT at year
-t — that's the regression's outcome universe) — the leave-one-out formula
-gives even an absent industry a well-defined value, and it's kept in the
-embedded data / shown on hover for context, just not on the colour scale
-or in the field (an absent industry's "closeness to the existing mix" is a
-different, also-interesting question, but not what this view is for).
+The per-(period, year, municipality, industry) density and presence arrays
+are quantised and embedded in one self-contained HTML file with a custom
+JavaScript layer (Plotly), written to
+{INTERACTIVE_PLOTS_DIR}/{run}_opportunity_space.html.
 
-t-SNE runs on the FULL code set per version (no 600/version subsample, unlike
-P03_emergent_structure.py's D plot / the existing *_D_tsne_interactive.html)
-so the published map is complete.
+Requires the restricted SCB individual-level register panel (except with
+--from-cache); run as a batch job.
 
-Output is one self-contained HTML with a hand-written JS layer (not
-Plotly's built-in slider/animation frames, which only animate a single
-dimension and can't compose an independent dropdown + slider): the
-per-(period, year, municipality, industry) density/presence arrays are
-quantized (density -> uint16, presence -> uint8) and embedded client-side
-as base64; dropdown/slider changes slice the right rows and call
-Plotly.restyle() directly. Written to
-{INTERACTIVE_PLOTS_DIR}/{run_name}_opportunity_space.html — several MB,
-same "doesn't belong in the git-tracked results/ tree" rule as the other
-interactive plots (see latent_industry.common.paths).
-
-This script reads the full individual-level SCB microdata
-(individ_cleaned_1990-2019.parquet) and loops the density computation over
-all 30 years — run it via a SLURM job (see
-CPU_regional_opportunity_space.sh), not directly in an interactive shell.
-
-Usage
------
-  python scripts/regional/P05_opportunity_space.py
+Usage (main run)
+----------------
   python scripts/regional/P05_opportunity_space.py --run-name shared_cosine_v16
 """
 
@@ -103,7 +74,7 @@ PERIOD_SPECS = [
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
-                    help="Embedding run (from train_sentence_embedding.py --run-name).")
+                    help="Embedding run under EMBEDDING_DIR (train_shared_cosine_embedding.py --run-name).")
 parser.add_argument("--tsne-perplexity", type=float, default=40.0)
 parser.add_argument("--from-cache", default=False, action="store_true",
                     help="Skip the SCB microdata load, the per-year density computation, and "

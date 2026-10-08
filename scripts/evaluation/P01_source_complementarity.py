@@ -1,53 +1,27 @@
-"""P01_source_complementarity.py — Result 1 (docs/Embedding validation.md):
-do the raw relatedness sources actually provide complementary information,
-BEFORE any shared embedding is trained?
+"""
+P01_source_complementarity.py
+=============================
+Result 1: do the relatedness sources carry complementary information? A
+model-free comparison of the raw sources (labor, input–output, ownership)
+and the official NACE hierarchy, before any embedding is trained.
 
-This is model-independent — no sentence encoder, no diffusion training. It
-compares the three relatedness sources this project builds (labor, input-
-output, ownership) plus official NACE hierarchy, directly against each
-other, at the one granularity all of them share: SNI07 2-digit divisions.
-Labor/ownership are natively 4-digit (per build_labor_relatedness.py /
-build_ownership_relatedness.py); their pairwise phi is aggregated up to
-2-digit divisions by averaging over every cross-division 4-digit pair — the
-same aggregation build_paper_table.py's sibling
-P02_shared_geometry_reconstruction.py (formerly evaluate_embeddings.py) uses
-for its I_io_aggregate_rho metric (`aggregate_up_io_metric`), applied here to
-raw sources instead of a trained embedding. IO is already native 2-digit
-(`io_relatedness_SNI07.parquet`). Hierarchy has no independent similarity
-value at this granularity — 2-digit
-division IS the base unit sections are built from — so it is represented as
-a binary same-section indicator (SNI_2digits_to_sections).
+All sources are compared at the granularity they share, 2-digit divisions
+(SNI07 by default). Labor and ownership relatedness (4-digit) are averaged
+over all cross-division 4-digit pairs; IO relatedness is natively 2-digit;
+the hierarchy enters as a same-section indicator. Low agreement between
+sources is the expected finding: it motivates learning one representation
+from all of them.
 
-If the sources agreed, one relatedness measure would suffice and the whole
-multi-source integration in this project's training pipeline would be
-unmotivated. Low correlation / low neighbourhood overlap here is therefore
-the FINDING this analysis is looking for, not a failure mode — sources
-genuinely observe different neighbourhoods, which is why multi-source
-integration is motivated in the first place.
+Analyses (one sources × sources matrix each)
+--------------------------------------------
+A  Spearman correlation of pairwise values over division pairs covered by both sources
+B  Nearest-neighbour overlap: Jaccard overlap of each division's top --topk
+   neighbours, averaged over divisions
+D  Linear CKA between the sources' similarity matrices
+E  Mutual information (kNN estimator, symmetrised) between pairwise values
 
-Four analyses, one N_sources x N_sources matrix each (letters kept from an
-earlier five-analysis layout — C, a diffusion-layer overlap on the archived
-averaged layer_diffusion_{name}.npz, was removed):
-
-A. Correlation matrix
-   Spearman rho between sources' pairwise values, over the (a, b) division
-   pairs both sources cover.
-
-B. Nearest-neighbour overlap
-   For every division covered by both sources, rank its neighbours by each
-   source's similarity and take the Jaccard overlap of the top --topk sets;
-   averaged over divisions.
-
-D. CKA (linear centered kernel alignment)
-   Treats each source's own similarity/phi matrix, restricted to the
-   divisions both sources cover with no missing entries, as a Gram matrix
-   directly (representational similarity analysis) — no learned features
-   involved, this is comparing the raw relatedness structures themselves.
-
-E. Mutual information
-   Continuous-valued kNN mutual information (sklearn's
-   mutual_info_regression) between the two sources' values over the (a, b)
-   pairs both cover, symmetrised by averaging the two estimation directions.
+Outputs: results/source_complementarity/P01_{a,b,d,e}_*_matrix.csv and a figure.
+build_paper_tables.py restricts these to the sources used in a given run.
 
 Usage
 -----
@@ -310,7 +284,7 @@ def main() -> None:
         "training on a fused multilayer target (P02/P03) rather than any "
         "single relatedness measure. Consistently high agreement across all "
         "five sources would instead suggest the multi-source integration is "
-        "unnecessary — see docs/Embedding validation.md Result 1."
+        "unnecessary."
     )
 
 

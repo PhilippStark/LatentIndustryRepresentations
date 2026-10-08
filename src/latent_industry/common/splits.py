@@ -1,25 +1,19 @@
-"""splits.py — reproducible, leakage-safe train/val/test partitions for
-evidence-family edge lists (labor, io, nace_4d/3d/2d/sec, ...).
+"""
+splits.py — reproducible, leakage-safe train/val/test partitions of the
+graph edge lists.
 
-Two leakage modes need blocking together, not just random-row splitting:
+Two kinds of leakage are blocked:
 
-  1. Symmetric duplicates — every relation here is undirected, so a naive
-     random split over individual (i, j) rows would let (i, j) train while
-     (j, i), the same observation, lands in test.
-  2. Cross-version near-duplicates — an SNI92 code, its SNI02 crosswalk
-     successor, and its SNI07 successor are the same real industry. An SNI92
-     edge (A, B) and the SNI07 edge (A'', B'') are near-duplicate
-     observations of the same underlying relatedness, not independent
-     evidence (see TODO.md §6.3).
+  1. Symmetric duplicates: relations are undirected, so (i, j) and (j, i)
+     must land in the same partition.
+  2. Cross-version near-duplicates: an SNI92 code and its SNI02/SNI07
+     successors are the same industry, so their edges are not independent.
 
-Both are solved by splitting on a canonical PAIR-GROUP key instead of raw
-edge rows: every node is mapped to a version-independent "concept group"
-(its connected component under crosswalk correspondence — nodes with no
-cross-version identity, e.g. hub nodes, just get their own singleton group).
-An edge's split key is then tuple(sorted((group(i), group(j)))) — order-
-independent (fixes symmetric duplicates) and vintage-independent (fixes
-cross-version near-duplicates). Every edge sharing a split key is guaranteed
-to land in the same partition.
+Edges are therefore split on a pair-group key: every node is mapped to a
+version-independent concept group (its connected component under the
+correspondence tables; nodes without one form singleton groups), and an
+edge's key is tuple(sorted((group(i), group(j)))). All edges with the same
+key fall into the same partition.
 """
 
 import hashlib

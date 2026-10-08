@@ -1,0 +1,616 @@
+code,section,description,x,y
+0111,A,"Growing of cereals (except rice), leguminous crops and oil seeds",-25.9598,-0.7575
+0112,A,Growing of rice,-24.1356,-8.3196
+0113,A,Growing of potatoes,-23.86,0.5388
+0114,A,Growing of sugar cane,-24.3928,-7.8734
+0115,A,Growing of tobacco,-24.2485,-8.0395
+0116,A,Growing of fibre crops,-24.3406,-8.2392
+0119,A,Growing of flowers and ornamental plants in greenhouses,-24.7825,0.2142
+0121,A,Growing of grapes,-23.1694,-7.8671
+0122,A,Growing of tropical and subtropical fruits,-23.2802,-7.542
+0123,A,Growing of citrus fruits,-23.0936,-7.6588
+0124,A,Growing of pome fruits and stone fruits,-26.2821,8.1718
+0125,A,Growing of other tree and bush fruits and nuts,-23.3008,0.4701
+0126,A,Growing of oleaginous fruits,-23.618,-8.0626
+0127,A,Growing of beverage crops,-22.6486,-7.2629
+0128,A,"Growing of spices, aromatic, drug and pharmaceutical crops",-22.4977,-1.3567
+0129,A,Growing of other perennial crops,-23.3991,-4.0841
+0130,A,Plant propagation in greenhouses,-23.5722,0.3108
+0141,A,Milk production and raising of dairy cattle,-26.7692,-1.5886
+0142,A,Raising of other cattle and buffaloes,-27.559,-1.5172
+0143,A,Raising of horses and other equines,-29.6918,-4.5511
+0144,A,Raising of camels and camelids,-18.3585,-11.3491
+0145,A,Raising of sheep and  goats,-29.4824,-4.2285
+0146,A,Raising of piglets,-26.7514,-1.2996
+0147,A,Egg production,-27.1427,-1.4774
+0149,A,Reindeer husbandry,-16.9768,-11.7616
+0150,A,Mixed farming,-26.2714,-1.2416
+0161,A,Support activities for crop production,-26.1937,-0.6929
+0162,A,Support activities for animal production,-28.7157,-2.1458
+0163,A,Post-harvest crop activities,-25.2571,-2.6722
+0164,A,Seed processing for propagation,-25.3348,-1.5404
+0170,A,"Hunting, trapping and related service activities",-12.4112,-9.5446
+0210,A,Forest management,-23.2257,-3.5184
+0220,A,Logging,10.2745,-0.62
+0230,A,Gathering of wild growing non-wood products,-23.1625,-0.4335
+0240,A,Wood measurement,-23.367,-3.6989
+0311,A,Marine trawling,6.6232,-3.2806
+0312,A,Freshwater fishing,9.3327,-1.2209
+0321,A,Marine aquaculture,-2.4898,-18.031
+0322,A,Freshwater aquaculture,-2.374,-17.7295
+0510,B,Mining of hard coal,9.7542,-14.7766
+0520,B,Mining of lignite,3.2988,-13.7013
+0610,B,Extraction of crude petroleum,2.8,-13.8999
+0620,B,Extraction of natural gas,-24.1132,-9.7053
+0710,B,Mining of iron ores,10.3591,-12.4168
+0721,B,Mining of uranium and thorium ores,-22.7409,-9.2748
+0729,B,Mining of other non-ferrous metal ores,2.9997,-13.9928
+0811,B,"Quarrying of ornamental and building stone, limestone, gypsum, chalk and slate",9.5099,-14.1448
+0812,B,Operation of gravel and sand pits; mining of clays and kaolin,9.7426,-10.9988
+0891,B,Mining of chemical and fertiliser minerals,11.7975,-11.1081
+0892,B,Extraction of peat,11.0053,-11.7655
+0893,B,Extraction of salt,13.1348,-16.5922
+0899,B,Other mining and quarrying n.e.c.,9.5747,-12.0965
+0910,B,Support activities for petroleum and natural gas extraction,3.9313,-14.4583
+0990,B,Support activities for other mining and quarrying,10.241,-12.2284
+1011,C,Livestock slaughtering,-24.1265,5.1038
+1012,C,Processing and preserving of poultry meat,-24.661,4.6635
+1013,C,Production of meat and poultry meat products,-23.7017,5.7029
+1020,C,"Processing and preserving of fish, crustaceans and molluscs",-22.7991,5.9387
+1031,C,Processing and preserving of potatoes,-24.041,6.6401
+1032,C,Manufacture of fruit and vegetable juice,-23.5576,8.3014
+1039,C,Other processing and preserving of fruit and vegetables,-23.2249,6.3602
+1041,C,Manufacture of oils and fats,-25.2395,7.708
+1042,C,Manufacture of margarine and similar edible fats,-24.8021,8.0234
+1051,C,Cheese production,-24.0152,8.0074
+1052,C,Manufacture of ice cream,-24.5823,8.6632
+1061,C,Production of flour,-23.3422,7.1319
+1062,C,Manufacture of starches and starch products,-21.7262,10.063
+1071,C,Manufacture of bread; manufacture of fresh pastry goods and cakes,-20.5253,6.2709
+1072,C,Manufacture of crispbread,-23.8119,7.0006
+1073,C,"Manufacture of macaroni, noodles, couscous and similar farinaceous products",-15.7665,-3.1966
+1081,C,Manufacture of sugar,-25.9837,6.833
+1082,C,Manufacture of sugar confectionery,-21.4701,7.55
+1083,C,Processing of tea and coffee,-21.2234,8.0155
+1084,C,Manufacture of condiments and seasonings,-24.2202,7.2323
+1085,C,Manufacture of prepared meals and dishes,-23.4428,6.416
+1086,C,Manufacture of homogenised food preparations and dietetic food,-24.8981,6.2623
+1089,C,Manufacture of other food products n.e.c.,-23.379,7.538
+1091,C,Manufacture of prepared feeds for farm animals,-26.6926,-0.07
+1092,C,Manufacture of prepared pet foods,-27.2989,0.8698
+1101,C,"Distilling, rectifying and blending of spirits",-24.5223,12.2849
+1102,C,Manufacture of wine from grape,-24.6902,12.9951
+1103,C,Manufacture of cider and other fruit wines,-24.2396,11.9638
+1104,C,Manufacture of other non-distilled fermented beverages,-24.9616,11.9542
+1105,C,Manufacture of beer,-23.9358,11.7257
+1106,C,Manufacture of malt,-29.9622,-5.1393
+1107,C,Manufacture of soft drinks; production of mineral waters and other bottled waters,-24.087,11.4134
+1200,C,Manufacture of tobacco products,-15.6298,-2.8909
+1310,C,Preparation and spinning of textile fibres,5.8207,17.8161
+1320,C,Weaving of textiles,4.2599,16.7497
+1330,C,Finishing of textiles,4.9729,16.2696
+1391,C,Manufacture of knitted and crocheted fabrics,4.3922,16.4738
+1392,C,"Manufacture of curtains, bed linen and other linen goods",4.1715,14.3934
+1393,C,Manufacture of carpets and rugs,2.4953,15.8376
+1394,C,"Manufacture of cordage, rope, twine and netting",3.7904,16.3663
+1395,C,"Manufacture of non-wovens and articles made from non-wovens, except apparel",15.1205,7.5742
+1396,C,Manufacture of other technical and industrial textiles,4.2767,16.0377
+1399,C,Manufacture of other textiles n.e.c.,4.8686,14.4814
+1411,C,Manufacture of leather clothes,-18.3611,-5.2556
+1412,C,Manufacture of workwear,6.3313,15.6675
+1413,C,Manufacture of other outerwear,6.4003,13.7712
+1414,C,Manufacture of underwear,6.4364,16.3696
+1419,C,Manufacture of other wearing apparel and accessories,5.4398,15.5234
+1420,C,Manufacture of articles of fur,6.2,12.3055
+1431,C,Manufacture of knitted and crocheted hosiery,6.3215,16.0371
+1439,C,Manufacture of other knitted and crocheted apparel,6.2666,17.2063
+1511,C,Tanning and dressing of leather; dressing and dyeing of fur,-18.2398,-5.0665
+1512,C,"Manufacture of luggage, handbags and the like, saddlery and harness",5.8066,14.9853
+1520,C,Manufacture of footwear,7.3949,16.5325
+1610,C,Sawmilling,10.4891,-0.695
+1621,C,Manufacture of veneer sheets and wood-based panels,11.6903,2.5669
+1622,C,Manufacture of assembled parquet floors,11.4281,0.5172
+1623,C,Manufacture of prefabricated wooden buildings,11.9156,-0.1491
+1624,C,Manufacture of wooden containers,14.6125,1.2632
+1629,C,Manufacture of wood fuels,12.0062,-11.5907
+1711,C,Manufacture of mechanical or semi-chemical pulp,15.2336,7.2116
+1712,C,Manufacture of newsprint,15.5998,6.7971
+1721,C,Manufacture of corrugated paper and paperboard and corrugated board containers,15.3442,4.7119
+1722,C,Manufacture of household and sanitary goods and of toilet requisites,15.3178,6.2852
+1723,C,Manufacture of paper stationery,-8.3995,8.2544
+1724,C,Manufacture of wallpaper,2.5593,15.273
+1729,C,Manufacture of other articles of paper and paperboard,15.1182,5.4517
+1811,C,Printing of newspapers,-8.2455,6.5531
+1812,C,Printing of periodicals,-7.1142,7.7984
+1813,C,Pre-press and pre-media services,-7.4315,7.4487
+1814,C,Binding and related services,-7.8779,8.1069
+1820,C,Reproduction of recorded media,-9.2652,3.305
+1910,C,Manufacture of coke oven products,16.6976,-15.0615
+1920,C,Manufacture of refined petroleum products,3.9703,-3.5499
+2011,C,Manufacture of industrial gases,15.946,-14.4446
+2012,C,Manufacture of dyes and pigments,1.5807,-16.3855
+2013,C,Manufacture of other inorganic basic chemicals,14.8664,-13.7695
+2014,C,Manufacture of other organic basic chemicals,15.8025,-13.5493
+2015,C,Manufacture of fertilisers and nitrogen compounds,11.0818,-12.4235
+2016,C,Manufacture of plastics in primary forms,15.515,-13.5539
+2017,C,Manufacture of synthetic rubber in primary forms,15.6455,-15.4132
+2020,C,Manufacture of pesticides and other agrochemical products,14.9353,-16.379
+2030,C,"Manufacture of paints, varnishes and similar coatings, printing ink and mastics",15.3823,-12.1691
+2041,C,"Manufacture of soap and detergents, cleaning and polishing preparations",16.3857,-13.6327
+2042,C,Manufacture of perfumes and toilet preparations,16.7538,-13.6538
+2051,C,Manufacture of explosives,13.3011,-13.5382
+2052,C,Manufacture of glues,15.8272,-13.0326
+2053,C,Manufacture of essential oils,-24.0264,10.219
+2059,C,Manufacture of other chemical products n.e.c.,15.834,-13.7801
+2060,C,Manufacture of man-made fibres,-25.7458,-8.046
+2110,C,Manufacture of basic pharmaceutical products,17.1424,-12.114
+2120,C,Manufacture of pharmaceutical preparations,17.27,-11.9332
+2211,C,Manufacture of rubber tyres and tubes; retreading and rebuilding of rubber tyres,20.5506,-8.1431
+2219,C,Manufacture of other rubber products,15.7852,2.771
+2221,C,"Manufacture of plastic plates, sheets, tubes and profiles",15.6126,3.8434
+2222,C,Manufacture of plastic packing goods,15.2948,4.2098
+2223,C,Manufacture of builders’ ware of plastic,12.013,1.0561
+2229,C,Manufacture of other plastic products,16.0976,3.9379
+2311,C,Manufacture of flat glass,15.574,-4.7232
+2312,C,Shaping and processing of flat glass,16.4605,-5.3135
+2313,C,Manufacture of hollow glass,2.3973,11.9415
+2314,C,Manufacture of glass fibres,12.906,-7.5984
+2319,C,"Manufacture and processing of other glass, including technical glassware",14.1475,-6.7215
+2320,C,Manufacture of refractory products,10.8608,-9.3806
+2331,C,Manufacture of ceramic tiles and flags,-23.1937,-9.9773
+2332,C,"Manufacture of bricks, tiles and construction products, in baked clay",11.2993,-8.5308
+2341,C,Manufacture of ceramic household and ornamental articles,3.6447,7.1104
+2342,C,Manufacture of ceramic sanitary fixtures,12.6965,1.5972
+2343,C,Manufacture of ceramic insulators and insulating fittings,12.8348,1.8899
+2344,C,Manufacture of other technical ceramic products,15.0061,-6.8946
+2349,C,Manufacture of other ceramic products,-24.5189,-6.8962
+2351,C,Manufacture of cement,10.857,-7.5184
+2352,C,Manufacture of lime and plaster,9.8285,-14.5458
+2361,C,Manufacture of concrete products for construction purposes,10.4192,-8.7997
+2362,C,Manufacture of plaster products for construction purposes,13.6824,-6.9776
+2363,C,Manufacture of ready-mixed concrete,9.7381,-10.1354
+2364,C,Manufacture of mortars,12.2924,-7.8616
+2365,C,Manufacture of fibre cement,11.3432,-7.7971
+2369,C,"Manufacture of other articles of concrete, plaster and cement",10.944,-8.248
+2370,C,"Cutting, shaping and finishing of building stone",9.1511,-14.484
+2391,C,Production of abrasive products,20.0612,12.3679
+2399,C,Manufacture of stone and mineral wool products,9.9113,-10.393
+2410,C,Manufacture of basic iron and steel and of ferro-alloys,26.5431,0.9052
+2420,C,"Manufacture of tubes, pipes, hollow profiles and related fittings, of steel",26.4365,0.5952
+2431,C,Cold drawing of bars,26.9971,0.9716
+2432,C,Cold rolling of narrow strip,27.2448,0.7321
+2433,C,Cold forming or folding,26.2214,0.8814
+2434,C,Cold drawing of wire,26.7863,0.2207
+2441,C,Precious metals production,19.8628,-1.8136
+2442,C,Aluminium production,21.3143,-0.6245
+2443,C,"Lead, zinc and tin production",-21.3209,-10.0225
+2444,C,Copper production,2.8901,-14.1904
+2445,C,Other non-ferrous metal production,27.0903,0.2836
+2446,C,Processing of nuclear fuel,15.1692,-14.1624
+2451,C,Casting of iron,23.7412,-1.5634
+2452,C,Casting of steel,23.9275,-1.6858
+2453,C,Casting of light metals,23.5491,-0.4837
+2454,C,Casting of other non-ferrous metals,23.9712,-1.1473
+2511,C,Manufacture of metal structures and parts of structures,21.7426,1.5021
+2512,C,Manufacture of doors and windows of metal,14.6409,-5.6399
+2521,C,Manufacture of central heating radiators and boilers,25.0529,6.4806
+2529,C,"Manufacture of other tanks, reservoirs and containers of metal",21.2799,0.2865
+2530,C,"Manufacture of steam generators, except central heating hot water boilers",23.7571,7.4047
+2540,C,Manufacture of weapons and ammunition,3.186,1.3136
+2550,C,"Forging, pressing, stamping and roll-forming of metal; powder metallurgy",24.6973,1.0039
+2561,C,Treatment and coating of metals,21.3969,0.0401
+2562,C,Machining,21.8734,1.7885
+2571,C,Manufacture of cutlery,22.3881,-1.5436
+2572,C,Manufacture of locks and hinges,16.9887,-0.4011
+2573,C,Manufacture of tools,22.7286,2.488
+2591,C,Manufacture of steel drums and similar containers,14.8485,4.4991
+2592,C,Manufacture of light metal packaging,14.7826,4.2817
+2593,C,"Manufacture of wire products, chain and springs",26.1914,-0.8189
+2594,C,Manufacture of fasteners and screw machine products,25.9821,-0.9935
+2599,C,"Manufacture of sinks, sanitary ware etc. of metal for construction purposes",21.6488,2.2365
+2611,C,Manufacture of electronic components,20.7715,8.3406
+2612,C,Manufacture of loaded electronic boards,20.97,8.9143
+2620,C,Manufacture of computers and peripheral equipment,20.3441,9.3872
+2630,C,Manufacture of communication equipment,20.4088,8.9034
+2640,C,Manufacture of consumer electronics,19.981,12.0675
+2651,C,"Manufacture of instruments and appliances for measuring, testing and navigation",20.1824,8.1636
+2652,C,Manufacture of watches and clocks,24.4139,8.7741
+2660,C,"Manufacture of irradiation, electromedical and electrotherapeutic equipment",11.7467,10.0255
+2670,C,Manufacture of optical instruments and photographic equipment,19.7192,9.6805
+2680,C,Manufacture of magnetic and optical media,5.3976,-0.088
+2711,C,"Manufacture of electric motors, generators and transformers",21.1459,7.4721
+2712,C,Manufacture of electricity distribution and control apparatus,21.0947,6.8221
+2720,C,Manufacture of batteries and accumulators,5.1837,-0.0336
+2731,C,Manufacture of fibre optic cables,21.7701,10.1241
+2732,C,Manufacture of other electronic and electric wires and cables,21.1165,8.1463
+2733,C,Manufacture of wiring devices,21.5985,7.1892
+2740,C,Manufacture of electric lighting equipment,10.3052,4.5721
+2751,C,Manufacture of electric domestic appliances,25.2123,6.1196
+2752,C,Manufacture of non-electric domestic appliances,25.5195,6.5196
+2790,C,Manufacture of other electrical equipment,20.6932,7.5108
+2811,C,"Manufacture of engines and turbines, except aircraft, vehicle and cycle engines",23.3876,0.369
+2812,C,Manufacture of fluid power equipment,20.9163,2.3975
+2813,C,Manufacture of other pumps and compressors,20.4395,2.7627
+2814,C,Manufacture of other taps and valves,19.9554,2.4155
+2815,C,"Manufacture of bearings, gears, gearing and driving elements",20.7217,4.6467
+2821,C,"Manufacture of ovens, furnaces and furnace burners",25.1562,6.6905
+2822,C,Manufacture of lifting and handling equipment,20.9814,1.4532
+2823,C,Manufacture of office machinery and equipment (except computers and peripheral equipment),20.4459,10.02
+2824,C,Manufacture of power-driven hand tools,23.7669,3.1387
+2825,C,Manufacture of non-domestic cooling and ventilation equipment,24.2234,6.0598
+2829,C,Manufacture of other general-purpose machinery n.e.c.,21.8638,4.0377
+2830,C,Manufacture of agricultural and forestry machinery,23.4275,4.868
+2841,C,Manufacture of metal forming machinery,23.6602,2.1753
+2849,C,Manufacture of other machine tools,22.997,2.9242
+2891,C,Manufacture of machinery for metallurgy,26.635,2.1163
+2892,C,"Manufacture of machinery for mining, quarrying and construction",22.9454,1.3586
+2893,C,"Manufacture of machinery for food, beverage and tobacco processing",23.8244,5.2573
+2894,C,"Manufacture of machinery for textile, apparel and leather production",7.2748,12.9081
+2895,C,Manufacture of machinery for paper and paperboard production,22.2459,5.0138
+2896,C,Manufacture of plastics and rubber machinery,24.8213,3.6592
+2899,C,Manufacture of other special-purpose machinery n.e.c.,21.4203,3.6257
+2910,C,Manufacture of passenger cars and other light motor vehicles,21.9034,-4.8926
+2920,C,Manufacture of bodies (coachwork) for motor vehicles; manufacture of trailers and semi-trailers,21.716,-5.4278
+2931,C,Manufacture of electrical and electronic equipment for motor vehicles,21.4341,9.4232
+2932,C,Manufacture of other parts and accessories for motor vehicles,22.9117,0.5161
+3011,C,Building of ships and floating structures,4.726,-2.6243
+3012,C,Building of pleasure and sporting boats,5.2026,-2.7753
+3020,C,Manufacture of railway locomotives and rolling stock,20.3514,6.9763
+3030,C,Manufacture of air and spacecraft and related machinery,18.5652,9.6206
+3040,C,Manufacture of military fighting vehicles,18.0904,9.9603
+3091,C,Manufacture of motorcycles,22.6429,-4.1321
+3092,C,Manufacture of bicycles and invalid carriages,24.8186,-4.003
+3099,C,Manufacture of other transport equipment n.e.c.,25.3038,-3.4763
+3101,C,Manufacture of office and shop furniture,10.6907,3.027
+3102,C,Manufacture of kitchen furniture,10.7966,2.3857
+3103,C,Manufacture of mattresses,8.9326,2.2016
+3109,C,Manufacture of other furniture,10.9812,2.5067
+3211,C,Striking of coins,-24.827,-9.0813
+3212,C,Manufacture of jewellery and related articles,6.297,10.083
+3213,C,Manufacture of imitation jewellery and related articles,7.7002,9.7804
+3220,C,Manufacture of musical instruments,-5.4546,-6.036
+3230,C,Manufacture of sports goods,1.059,12.8253
+3240,C,Manufacture of games and toys,-2.4533,12.626
+3250,C,Manufacture of medical and dental instruments and supplies,11.406,10.016
+3291,C,Manufacture of brooms and brushes,12.4662,-3.8439
+3299,C,Other manufacturing n.e.c.,19.8048,12.5057
+3311,C,Repair of fabricated metal products,22.2125,0.8606
+3312,C,Repair of machinery,21.9661,3.4592
+3313,C,Repair of electronic and optical equipment,22.0692,8.2022
+3314,C,Repair of electrical equipment,21.6697,7.4196
+3315,C,Repair and maintenance of ships and boats,4.4594,-2.5629
+3316,C,Repair and maintenance of aircraft and spacecraft,1.9724,-5.4734
+3317,C,Repair and maintenance of other transport equipment,20.169,6.6685
+3319,C,Repair of other equipment,15.1765,1.5623
+3320,C,Installation of industrial machinery and equipment,21.8835,5.4313
+3511,D,Production of electricity,-1.6834,-16.4433
+3512,D,Transmission of electricity,-2.9352,-16.0987
+3513,D,Distribution of electricity,-2.201,-16.1337
+3514,D,Trade of electricity,-1.9341,-16.2217
+3521,D,Manufacture of gas,9.1512,-3.8818
+3522,D,Distribution of gaseous fuels through mains,-3.3927,-16.5257
+3523,D,Trade of gas through mains,-22.3208,-11.2263
+3530,D,Steam and air conditioning supply,-1.4899,-15.6915
+3600,E,"Collection, treatment and supply of groundwater",-2.3187,-13.8807
+3700,E,Sewerage,-0.1248,-14.471
+3811,E,Collection of non-hazardous waste,-1.0577,-14.286
+3812,E,Collection of hazardous waste,-0.1699,-15.2759
+3821,E,Treatment and disposal of non-hazardous waste,-0.4869,-14.8108
+3822,E,Treatment and disposal of hazardous waste,0.605,-14.4576
+3831,E,Dismantling of car wrecks,0.8238,-15.6543
+3832,E,Recovery of sorted materials,0.5384,-15.2611
+3900,E,Remediation activities and other waste management services,0.3111,-14.649
+4110,F,Development of building projects,-2.7258,-3.902
+4120,F,Construction of residential and non-residential buildings,8.9911,-8.9479
+4211,F,Construction of roads and motorways,-5.7656,-10.5904
+4212,F,Construction of railways and underground railways,3.351,-9.3556
+4213,F,Construction of bridges and tunnels,8.3734,-10.5609
+4221,F,Construction of utility projects for fluids,7.8351,-10.2784
+4222,F,Construction of utility projects for electricity and telecommunications,-1.6171,-16.6537
+4291,F,Construction of water projects,5.7762,-5.4826
+4299,F,Construction of other civil engineering projects n.e.c.,-2.2932,-3.6453
+4311,F,Demolition,7.881,-9.5655
+4312,F,Site preparation,8.6848,-10.0759
+4313,F,Test drilling and boring,8.3571,-11.6235
+4321,F,Electrical installation,16.3436,-1.3482
+4322,F,Installation of heating and sanitary equipment,16.5156,-1.5037
+4329,F,Other construction installation,16.5566,-1.2612
+4331,F,Plastering,14.5644,-4.2665
+4332,F,Joinery installation,13.8842,-6.1754
+4333,F,Floor and wall covering,14.7124,-4.0917
+4334,F,Painting,14.9065,-4.2384
+4339,F,Other building completion and finishing,-2.8438,-4.3625
+4391,F,Erection of sheet-metal roof covering,16.443,-1.8495
+4399,F,Renting of construction or demolition equipment with operator,8.5555,-9.5216
+4511,G,Sale of cars and light motor vehicles,20.7374,-6.9094
+4519,G,"Sale of lorries, buses and specialised motor vehicles",21.2916,-6.3909
+4520,G,Non-specialised maintenance and repair of motor vehicles,20.7658,-6.3153
+4531,G,Wholesale trade of motor vehicle parts and accessories,20.9907,-5.7601
+4532,G,Retail trade of motor vehicle parts and accessories,20.9853,-6.371
+4540,G,"Sale, maintenance and repair of motorcycles and related parts and accessories",2.9113,-0.6995
+4611,G,"Agents involved in the sale of agricultural raw materials, live animals, textile raw materials and semi-finished goods",-27.1641,-5.4108
+4612,G,"Agents involved in the sale of fuels, ores, metals and industrial chemicals",15.2628,-14.8578
+4613,G,Agents involved in the sale of timber and building materials,8.0491,4.2932
+4614,G,"Agents involved in the sale of machinery, industrial equipment, ships and aircraft except office machinery and computer equipment",20.276,4.841
+4615,G,"Agents involved in the sale of furniture, household goods, hardware and ironmongery",8.2621,4.3603
+4616,G,"Agents involved in the sale of textiles, clothing, fur, footwear and leather goods",5.3126,12.3593
+4617,G,"Agents involved in the sale of food, beverages and tobacco",-22.4469,7.3081
+4618,G,Agents specialised in the sale of other particular products,-1.0325,8.8549
+4619,G,Agents involved in the sale of a variety of goods,-0.4561,9.6632
+4621,G,"Wholesale of grain, unmanufactured tobacco, seeds and animal feeds",-26.5164,0.1387
+4622,G,Wholesale of flowers and plants,-24.4144,0.8462
+4623,G,Wholesale of live animals,-27.4403,-4.6252
+4624,G,"Wholesale of hides, skins and leather",-17.8106,-4.4681
+4631,G,Wholesale of fruit and vegetables,-22.2405,4.0685
+4632,G,Wholesale of meat and meat products,-24.3419,5.6115
+4633,G,"Wholesale of dairy products, eggs and edible oils and fats",-24.5064,8.1147
+4634,G,Wholesale of beverages,-23.7176,11.6733
+4635,G,Wholesale of tobacco products,-15.7821,-2.6308
+4636,G,Wholesale of sugar and chocolate and sugar confectionery,-22.1538,7.7536
+4637,G,"Wholesale of coffee, tea, cocoa and spices",-20.7635,7.9258
+4638,G,"Wholesale of other food, including fish, crustaceans and molluscs",-22.2195,6.6148
+4639,G,"Non-specialised wholesale of food, beverages and tobacco",-21.6193,6.5871
+4641,G,Wholesale of textiles,4.5071,14.237
+4642,G,Wholesale of clothing and footwear,5.0483,12.9834
+4643,G,Wholesale of electrical household appliances,1.2261,7.75
+4644,G,Wholesale of china and glassware and cleaning materials,4.604,6.6845
+4645,G,Wholesale of perfume and cosmetics,17.1027,-13.4245
+4646,G,Wholesale of pharmaceutical goods,11.7175,10.2484
+4647,G,"Wholesale of furniture, carpets and lighting equipment",10.0478,3.8761
+4648,G,Wholesale of watches and jewellery,5.6743,10.0929
+4649,G,Wholesale of sporting equipment,2.751,9.9867
+4651,G,"Wholesale of computers, computer peripheral equipment and software",-2.331,7.7783
+4652,G,Wholesale of electronic components,19.3011,7.9858
+4661,G,"Wholesale of agricultural machinery, equipment and supplies",-27.1557,-0.0357
+4662,G,Wholesale of machine tools,22.9839,3.5662
+4663,G,"Wholesale of mining, construction and civil engineering machinery",19.2288,0.8998
+4664,G,Wholesale of machinery for the textile industry and of sewing and knitting machines,25.9164,6.5348
+4665,G,Wholesale of office furniture,10.0729,3.5898
+4666,G,Wholesale of other office machinery and equipment,-2.1235,8.4484
+4669,G,Wholesale of measuring and precision instruments,20.6695,3.8485
+4671,G,"Wholesale of solid, liquid and gaseous fuels and related products",12.5222,-12.2641
+4672,G,Wholesale of metals and metal ores,20.7099,-0.5635
+4673,G,Wholesale of wood and other construction materials,13.1308,-1.846
+4674,G,Wholesale of hardware,18.5192,1.7961
+4675,G,Wholesale of chemical products,14.6138,-13.3528
+4676,G,Wholesale of industry supplies,17.725,2.9131
+4677,G,Wholesale in car wrecks,0.7366,-15.3597
+4690,G,Non-specialised wholesale trade,18.5887,6.1298
+4711,G,"Retail sale in department stores and the like with food, beverages or tobacco predominating",-15.4756,6.4175
+4719,G,Other retail sale in department stores and the like,3.7419,11.5951
+4721,G,Retail sale of fruit and vegetables in specialised stores,-21.4915,2.87
+4722,G,Retail sale of meat and meat products in specialised stores,-24.9075,5.1023
+4723,G,"Retail sale of fish, crustaceans and molluscs in specialised stores",-22.0895,5.4476
+4724,G,"Retail sale of bread, cakes and flour confectionery in specialised stores",-16.0575,7.0037
+4725,G,Retail sale of beverages in specialised stores,-23.8032,12.1992
+4726,G,Retail sale of tobacco products in specialised stores,-14.4846,7.1049
+4729,G,Retail sale of health foods in specialised stores,-20.717,7.4544
+4730,G,Retail sale of automotive fuel in specialised stores,20.3705,-6.971
+4741,G,"Retail sale of computers, peripheral units and software in specialised stores",-0.7139,8.0176
+4742,G,Retail sale of telecommunications equipment in specialised stores,-1.0794,7.657
+4743,G,Retail sale of audio and video equipment in specialised stores,0.1294,8.0807
+4751,G,Retail sale of textiles in specialised stores,4.2895,13.7806
+4752,G,Retail sale of wood and other building materials in specialised stores,13.4312,-2.31
+4753,G,"Retail sale of carpets, rugs, wall and floor coverings in specialised stores",3.7123,13.2428
+4754,G,Retail sale of electrical household appliances in specialised stores,0.2955,8.2269
+4759,G,Retail sale of home furniture in specialised stores,3.0508,11.3881
+4761,G,Retail sale of books in specialised stores,-13.246,6.8973
+4762,G,Retail sale of newspapers in specialised stores,-13.94,7.044
+4763,G,Retail sale of music and video recordings in specialised stores,-15.3005,7.7808
+4764,G,Retail sale of sporting equipment except bicycles in specialised stores,3.2541,9.8416
+4765,G,Retail sale of games and toys in specialised stores,4.3659,9.8912
+4771,G,"Retail sale of men's, women's and children's clothing in specialised stores",4.6123,12.0404
+4772,G,Retail sale of footwear in specialised stores,4.8568,11.0651
+4773,G,Dispensing chemist,11.9473,10.911
+4774,G,Retail sale of medical and orthopaedic goods in specialised stores,10.8867,10.1487
+4775,G,Retail sale of cosmetic and toilet articles in specialised stores,4.58,10.5676
+4776,G,"Retail sale of flowers, plants, seedsand fertilisers in specialised stores",-24.91,0.7818
+4777,G,Retail sale of watches and clocks in specialised stores,5.2811,10.1427
+4778,G,Retail sale of spectacles and other optical goods except photographic equipment in specialised stores,3.7973,10.0998
+4779,G,Retail sale of antiques and second-hand books in stores,-12.1032,-1.8811
+4781,G,"Retail sale via stalls and markets of food, beverages and tobacco products",-20.4789,2.344
+4782,G,"Retail sale via stalls and markets of textiles, clothing and footwear",-20.0994,2.1495
+4789,G,Retail sale via stalls and markets of other goods,-20.2644,2.2949
+4791,G,Non-specialised retail sale via mail order houses or via internet,3.3999,10.7162
+4799,G,Retail sale on commission,-4.8077,2.7178
+4910,H,"Passenger rail transport, interurban",2.0609,-8.9759
+4920,H,Freight rail transport,2.9538,-9.1258
+4931,H,Urban and suburban road passenger transport,1.7641,-8.7389
+4932,H,Taxi operation,1.395,-8.5811
+4939,H,Other passenger land transport n.e.c.,1.7042,-8.5211
+4941,H,Freight transport by road,5.3419,-7.9944
+4942,H,Removal services,4.7029,-7.6393
+4950,H,Transport via pipeline,-21.8911,-8.4052
+5010,H,Scheduled sea and coastal passenger water transport,4.2765,-4.7608
+5020,H,Scheduled sea and coastal freight water transport,4.54,-3.6815
+5030,H,Scheduled inland passenger water transport,4.8797,-4.5437
+5040,H,Scheduled inland freight water transport,5.3558,-4.708
+5110,H,Scheduled passenger air transport,2.1185,-5.7921
+5121,H,Scheduled freight air transport,1.5766,-5.6324
+5122,H,Space transport,-22.1765,-8.5666
+5210,H,Warehousing and storage,3.4904,4.7044
+5221,H,Towing incidental to land transportation,2.5301,-8.679
+5222,H,Service activities incidental to water transportation,5.0874,-4.6219
+5223,H,Service activities incidental to air transportation,2.2134,-5.0937
+5224,H,Harbour cargo handling,4.6135,-5.3656
+5229,H,Other transportation support activities,4.3397,-7.1108
+5310,H,Postal activities under universal service obligation,3.1371,-3.9064
+5320,H,Other postal activities,-3.8859,1.504
+5510,I,Hotels with restaurant except conference centres,-13.6914,-4.0176
+5520,I,Youth hostels,-12.821,-5.3975
+5530,I,"Camping grounds, recreational vehicle parks and trailer parks",-12.4941,-6.1208
+5590,I,Other accommodation,-12.3662,-6.8852
+5610,I,Restaurants and mobile food service activities,-12.276,-4.0628
+5621,I,Event catering activities,-19.0082,7.221
+5629,I,Canteens,-10.8115,-9.9872
+5630,I,Beverage serving activities,-23.281,-8.878
+5811,J,Book publishing,-7.5413,5.4784
+5812,J,Publishing of directories and mailing lists,-8.5003,5.8823
+5813,J,Publishing of daily newspapers,-7.0452,5.4525
+5814,J,Publishing of journals and periodicals,-7.0495,5.6811
+5819,J,Other publishing activities,-7.2126,7.471
+5821,J,Publishing of computer games,-4.4662,7.6991
+5829,J,Other software publishing,-3.9483,6.8484
+5911,J,"Motion picture, video and television programme production activities",-7.2205,4.1895
+5912,J,"Motion picture, video and television programme post-production activities",-8.0783,3.08
+5913,J,"Motion picture, video and television programme distribution activities",-8.5373,3.9526
+5914,J,Motion picture projection activities,-9.8128,-5.6234
+5920,J,Sound recording and music publishing activities,-7.9757,4.4396
+6010,J,Radio broadcasting,-7.7543,4.4271
+6020,J,Television programming and broadcasting activities,-8.0411,3.3046
+6110,J,Wired telecommunications activities,-2.2348,7.3414
+6120,J,Wireless telecommunications activities,-2.8127,6.3376
+6130,J,Satellite telecommunications activities,-4.0183,8.9023
+6190,J,Other telecommunications activities,-1.9953,4.6677
+6201,J,Computer programming activities,-3.5947,7.0063
+6202,J,Computer consultancy activities,-3.4174,7.6559
+6203,J,Computer facilities management activities,-3.7076,5.6203
+6209,J,Other information technology and computer service activities,-3.2325,7.8962
+6311,J,"Data processing, hosting and related activities",-3.4165,5.5111
+6312,J,Web portals,-5.2953,6.0849
+6391,J,News agency activities,-7.85,5.3768
+6399,J,Other information service activities n.e.c.,-8.1968,0.2976
+6411,K,Central banking,-6.934,16.2553
+6419,K,Other monetary intermediation,-7.8902,14.3318
+6420,K,Activities of financial holding companies,-8.9376,13.3279
+6430,K,Investment funds,-7.5457,14.2585
+6491,K,Financial leasing,-5.9332,12.7284
+6492,K,Other credit granting,-7.0642,13.8076
+6499,K,Activities of investment companies and venture capital companies,-7.8984,13.348
+6511,K,Unit link insurance,-8.3556,15.0431
+6512,K,Non-life insurance,-9.0129,14.3905
+6520,K,Reinsurance,-7.8797,15.7008
+6530,K,Pension funding,-8.21,15.9217
+6611,K,Administration of financial markets,-7.0974,15.0488
+6612,K,Security and commodity contracts brokerage,-7.3574,14.5479
+6619,K,"Other activities auxiliary to financial services, except insurance and pension funding",-8.1805,13.8237
+6621,K,Risk and damage evaluation,-9.1171,15.112
+6622,K,Activities of insurance agents and brokers,-8.5644,14.2762
+6629,K,Other activities auxiliary to insurance and pension funding,-8.4898,14.7517
+6630,K,Investment fund management activities,-7.8033,14.9316
+6810,L,Buying and selling of own real estate,-6.7223,-12.2431
+6820,L,Renting and operating of own or leased dwelllings,-7.1066,-11.5099
+6831,L,Real estate agencies,-3.4417,-0.4426
+6832,L,Management of real estate on a fee or contract basis,-3.277,0.1542
+6910,M,Legal advisory and representation activities of solicitor's firms,8.0805,-15.5495
+6920,M,Accounting and bookkeeping activities,-1.2775,3.4897
+7010,M,Activities of head offices,-1.0287,2.4274
+7021,M,Public relations and communication activities,-5.738,5.0764
+7022,M,Business and other management consultancy activities,-2.9879,3.6094
+7111,M,Architectural activities,-3.1695,-3.3843
+7112,M,Construction and civil engineering activities and related technical consultancy,0.3717,1.1149
+7120,M,Technical testing and analysis,-15.5491,-11.7366
+7211,M,Research and experimental development on biotechnology,9.3477,-3.9938
+7219,M,Other research and experimental development on natural sciences and engineering,0.4356,1.3848
+7220,M,Research and experimental development on social sciences and humanities,-3.5599,-3.0769
+7311,M,Advertising agency activities,-6.0295,5.5136
+7312,M,Media representation,-6.6323,5.2115
+7320,M,Market research and public opinion polling,-6.7992,3.4153
+7410,M,Industrial and fashion design,2.1878,10.0913
+7420,M,Portrait photography,0.0897,6.8223
+7430,M,Translation and interpretation activities,-4.6811,0.8563
+7490,M,"Other professional, scientific and technical activities n.e.c.",-1.7331,2.2436
+7500,M,Veterinary activities,-1.9033,2.0948
+7711,N,Renting and leasing of cars and light motor vehicles,20.9538,-6.9569
+7712,N,Renting and leasing of trucks,5.9515,-9.7787
+7721,N,Renting and leasing of recreational and sports goods,-14.1348,8.0252
+7722,N,Renting of video tapes and disks,-15.1164,7.546
+7729,N,Renting and leasing of other personal and household goods,-18.8293,7.3559
+7731,N,Renting and leasing of agricultural machinery and equipment,-26.1266,-2.7456
+7732,N,Renting and leasing of construction and civil engineering machinery and equipment,6.9773,-9.3473
+7733,N,Renting and leasing of office machinery and equipment (including computers),-3.8091,10.3631
+7734,N,Renting and leasing of water transport equipment,5.7018,-4.2744
+7735,N,Renting and leasing of air transport equipment,1.1169,-5.5243
+7739,N,"Renting and leasing of other machinery, equipment and tangible goods n.e.c.",6.6049,-9.1149
+7740,N,"Leasing of intellectual property and similar products, except copyrighted works",-14.0498,6.8526
+7810,N,Activities of employment placement agencies,-0.391,1.7174
+7820,N,Temporary employment agency activities,-0.4182,2.1427
+7830,N,Other human resources provision,-10.1841,14.8783
+7911,N,Travel agency activities,2.3177,-5.6906
+7912,N,Tour operator activities,2.342,-5.9873
+7990,N,Other reservation service and related activities,-8.8301,-7.8996
+8010,N,Private security activities,-1.4557,0.6545
+8020,N,Security systems service activities,0.2365,-0.9208
+8030,N,Investigation activities,0.3973,-1.3672
+8110,N,Combined facilities support activities,-2.5865,0.7603
+8121,N,General cleaning of buildings,-7.4015,-10.2907
+8122,N,Other building cleaning activities,-3.5553,-11.3348
+8129,N,Other cleaning activities,-4.5312,-11.0824
+8130,N,Landscape service activities,-6.5717,-9.7604
+8211,N,Combined office administrative service activities,-3.4389,0.9393
+8219,N,"Photocopying, document preparation and other specialised office support activities",-4.3913,1.0959
+8220,N,Activities of call centres,-3.3694,3.3062
+8230,N,Organisation of conventions and trade shows,-4.2061,2.2852
+8291,N,Activities of collection agencies and credit bureaus,-7.3479,13.3531
+8292,N,Packaging activities,-25.4075,8.7258
+8299,N,Other business support service activities n.e.c.,-4.8927,1.3467
+8411,O,Executive and legislative administration of central and local government,-8.4035,-9.4378
+8412,O,Administration of primary and secondary education,-8.8662,-9.448
+8413,O,Administration of infrastructure programmes,-7.4418,-9.6207
+8421,O,Foreign affairs,-16.7043,-11.589
+8422,O,Military defence activities,-16.7222,-11.8376
+8423,O,Public prosecutor activities,-12.1796,3.3539
+8424,O,Public order and safety activities,-16.2712,-11.8131
+8425,O,Fire service activities,-6.8186,-10.6894
+8430,O,Compulsory social security activities,-8.8106,15.6548
+8510,P,Pre-primary education,-8.1965,-10.3279
+8520,P,Compulsory comprehensive school education and pre-school class,-8.303,-10.0962
+8531,P,General secondary education,-9.3072,-9.4321
+8532,P,Technical and vocational secondary education,-9.7355,-9.4681
+8541,P,Post-secondary non-tertiary education,-16.4861,-11.7582
+8542,P,Tertiary education,-3.9387,4.0862
+8551,P,Sports and recreation education,-8.5913,-1.9687
+8552,P,Activities of municipal culture schools,-8.9313,-8.3843
+8553,P,Driving school activities,-8.0912,-12.929
+8559,P,Labour market training,-8.5309,-8.782
+8560,P,Educational support activities,-9.8551,-8.7404
+8610,Q,Hospital primary health activities,-1.2025,0.0168
+8621,Q,General primary medical practice activities,-10.2049,-11.9181
+8622,Q,"Specialist medical practice activities, at hospitals",-10.549,-12.5453
+8623,Q,Dental practice activities,-10.9751,-12.7509
+8690,Q,Activities of medical laboratories etc.,-10.387,-12.2585
+8710,Q,Residential nursing care activities,-10.855,-11.9769
+8720,Q,Care in special forms of accommodation for persons with mental retardation and mental disability,-9.4435,-10.7433
+8730,Q,Care in special forms of accommodation for the elderly,-9.0582,-10.827
+8790,Q,Twenty-four hours care with accommodation for children and young people with social problems,-8.5059,-11.2853
+8810,Q,Social work activities without accommodation for the elderly,-8.1591,-11.2181
+8891,Q,Child day-care activities,-8.7944,-10.1226
+8899,Q,Social work activities for children and young people with social problems,-9.214,-10.0729
+9001,R,Performing arts,-8.9033,-6.1439
+9002,R,Support activities to performing arts,-8.8396,-4.7088
+9003,R,Artistic creation,-7.9633,-5.7703
+9004,R,Operation of arts facilities,-8.8636,-6.7364
+9101,R,Library activities,-9.3197,-8.317
+9102,R,Museums activities,-8.3268,-7.5842
+9103,R,Operation of historical sites and buildings and similar visitor attractions,-7.9295,-6.5375
+9104,R,Botanical and zoological gardens and nature reserves activities,-8.8323,-4.4339
+9200,R,Gambling and betting activities,-8.8139,-4.2092
+9311,R,Operation of ski facilities,-7.751,-9.47
+9312,R,Activities of sport clubs,-8.3518,-2.8175
+9313,R,Fitness facilities,-8.2493,-0.8134
+9319,R,Horse racing activities,-8.3032,-1.7492
+9321,R,Activities of amusement parks and theme parks,-13.1572,-4.6002
+9329,R,Other amusement and recreation activities,-7.9327,-8.5013
+9411,S,Activities of business membership organisations,-29.0118,-2.1944
+9412,S,Activities of professional membership organisations,-10.9354,-8.3427
+9420,S,Activities of trade unions,-4.1128,-8.5546
+9491,S,Activities of religious organisations,-12.206,-2.0847
+9492,S,Activities of political organisations,-11.6153,-0.2725
+9499,S,Activities of other membership organisations n.e.c.,-11.7688,-1.6861
+9511,S,Repair of computers and peripheral equipment,-2.6483,8.9025
+9512,S,Repair of communication equipment,-3.022,9.0139
+9521,S,Repair of consumer electronics,-2.2992,10.0617
+9522,S,Repair of household appliances and home and garden equipment,-1.9562,10.463
+9523,S,Repair of footwear and leather goods,7.6015,14.8239
+9524,S,Repair of furniture and home furnishings,10.566,3.3386
+9525,S,"Repair of watches, clocks and jewellery",6.2758,9.8549
+9529,S,Repair of other personal and household goods,7.1744,14.7582
+9601,S,Washing and (dry-)cleaning for businesses and institutions,-9.7946,-13.5143
+9602,S,Hairdressing,5.0738,8.6217
+9603,S,Funeral and related activities,8.2426,-15.3861
+9604,S,Physical well-being activities,-8.3064,-1.0296
+9609,S,Other personal service activities n.e.c.,-9.1362,-1.63
+9700,T,Activities of households as employers of domestic personnel,-1.4808,-2.5419
+9810,T,Undifferentiated goods-producing activities of private households for own use,-16.6915,-14.2777
+9820,T,Undifferentiated service-producing activities of private households for own use,-2.0284,-7.1233
+9900,U,Activities of extraterritorial organisations and bodies,-22.0694,-12.1085

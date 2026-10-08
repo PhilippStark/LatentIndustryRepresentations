@@ -1,17 +1,12 @@
-"""repulsion.py — 4d_SNI07 repulsion evidence: verified "officially excludes"
-class-text matches, applied as a direct post-hoc penalty on the final target
-similarity (see multilayer_diffusion.finalize_target), not folded into any
-layer's transition matrix, since a Markov chain can't carry negative
-transition mass.
+"""
+repulsion.py — negative (repulsion) evidence between 4d SNI07 codes: pairs
+whose official NACE class text explicitly excludes the other. Kept as a
+separate matrix S_neg (saved in layers_{name}.npz), not as transition mass.
 
-Sourced only from collect_class_excludes_pairs, not from negative NACE
-cosine similarity — that similarity is negative largely because
-layers.load_nace_embeddings mean-centers each level's vectors before
-computing it (a per-level anisotropy-removal artifact, ~59% of all 4d pairs
-measured negative post-centering, not a real ~1-2% exclusion rate — see
-docs/conceptual_audit.md's NACE negative edges finding). The negative cosine score still exists as a
-continuous diagnostic (layers.NaceEmbeddingContext.negative_edges) — it's
-just not treated as repulsion here.
+Negative NACE cosine similarity is not used as repulsion evidence: after the
+per-level mean-centring in layers.load_nace_embeddings, a majority of pairs
+have negative similarity, so the sign is not informative. It remains
+available as a diagnostic (layers.NaceEmbeddingContext.negative_edges).
 """
 
 import numpy as np
@@ -42,9 +37,10 @@ def collect_class_excludes_pairs(nace_ctx: NaceEmbeddingContext) -> list[tuple[i
 
 def build_repulsion_matrix(nace_ctx: NaceEmbeddingContext, target_ids: list[int],
                             target_pos: dict[int, int]) -> np.ndarray:
-    """target x target repulsion weight matrix — flat weight 1.0 per
-    verified excludes pair, deduplicated. This is what gets saved as S_neg
-    and later scaled by --repulsion in finalize_target."""
+    """
+    Target × target repulsion matrix S_neg: weight 1.0 per excludes pair,
+    deduplicated.
+    """
     excludes_pairs = collect_class_excludes_pairs(nace_ctx)
     weight_by_pair: dict[tuple[int, int], float] = {}
     for i, j in excludes_pairs:

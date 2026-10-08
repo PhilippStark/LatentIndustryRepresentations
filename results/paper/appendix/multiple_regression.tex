@@ -1,0 +1,62 @@
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption{Multiple regressions of industry entry, industry exit and startup formation on opportunity density and one relational-view density. Each row is one linear probability model, estimated per classification period, with both densities (each standardised within the period) and municipality$\times$year and industry fixed effects; standard errors are clustered by municipality and industry. Coefficients in percentage points per standard deviation, 95\% confidence intervals in brackets. Labour mobility and common ownership enter as the row-normalised relations used in training; input--output relatedness is not available for SNI92.}
+\label{tab:multiple_regression}
+\begin{tabular}{lllcc}
+\toprule
+Outcome & Period & Relational view & Opportunity density & Relational-view density \\
+\midrule
+Industry entry & SNI92 & Labour mobility & $2.71$ [1.12, 4.30] & $2.29$ [1.92, 2.66] \\
+ &  & Common ownership & $4.18$ [2.75, 5.61] & $1.37$ [1.06, 1.69] \\
+ &  & Industry hierarchy & $5.24$ [3.67, 6.81] & $0.64$ [0.13, 1.16] \\
+ &  & Text initialization & $5.30$ [3.76, 6.85] & $0.35$ [-0.16, 0.86] \\
+\addlinespace[2pt]
+ & SNI02 & Labour mobility & $1.98$ [0.52, 3.44] & $1.88$ [1.40, 2.37] \\
+ &  & Common ownership & $3.45$ [1.96, 4.94] & $0.54$ [0.29, 0.80] \\
+ &  & Input--output relatedness & $3.95$ [2.44, 5.47] & $0.18$ [-0.84, 1.20] \\
+ &  & Industry hierarchy & $3.04$ [1.61, 4.47] & $0.92$ [0.39, 1.45] \\
+ &  & Text initialization & $4.35$ [2.78, 5.92] & $-0.25$ [-0.86, 0.36] \\
+\addlinespace[2pt]
+ & SNI07 & Labour mobility & $1.80$ [-0.15, 3.75] & $1.82$ [1.49, 2.15] \\
+ &  & Common ownership & $4.71$ [2.81, 6.61] & $0.47$ [0.32, 0.63] \\
+ &  & Input--output relatedness & $5.72$ [3.81, 7.64] & $-0.15$ [-0.62, 0.33] \\
+ &  & Industry hierarchy & $3.23$ [1.32, 5.15] & $1.08$ [0.73, 1.44] \\
+ &  & Text initialization & $5.39$ [3.24, 7.55] & $0.11$ [-0.49, 0.71] \\
+\midrule
+Industry exit & SNI92 & Labour mobility & $-7.37$ [-9.12, -5.62] & $-2.18$ [-2.65, -1.71] \\
+ &  & Common ownership & $-9.71$ [-11.51, -7.92] & $-1.27$ [-1.83, -0.72] \\
+ &  & Industry hierarchy & $-10.39$ [-12.49, -8.28] & $-0.89$ [-1.71, -0.08] \\
+ &  & Text initialization & $-11.15$ [-13.77, -8.53] & $-0.16$ [-0.94, 0.62] \\
+\addlinespace[2pt]
+ & SNI02 & Labour mobility & $-4.76$ [-5.83, -3.69] & $-1.35$ [-1.89, -0.82] \\
+ &  & Common ownership & $-6.20$ [-7.37, -5.03] & $0.08$ [-0.32, 0.49] \\
+ &  & Input--output relatedness & $-6.17$ [-7.25, -5.09] & $0.21$ [-1.10, 1.52] \\
+ &  & Industry hierarchy & $-5.08$ [-6.33, -3.84] & $-1.24$ [-1.89, -0.58] \\
+ &  & Text initialization & $-5.35$ [-6.90, -3.80] & $-0.64$ [-1.36, 0.08] \\
+\addlinespace[2pt]
+ & SNI07 & Labour mobility & $-7.71$ [-9.32, -6.09] & $-1.65$ [-2.04, -1.25] \\
+ &  & Common ownership & $-10.49$ [-12.16, -8.83] & $-0.25$ [-0.55, 0.06] \\
+ &  & Input--output relatedness & $-10.79$ [-12.34, -9.24] & $-0.20$ [-1.05, 0.65] \\
+ &  & Industry hierarchy & $-9.78$ [-11.54, -8.03] & $-0.92$ [-1.49, -0.34] \\
+ &  & Text initialization & $-10.96$ [-13.19, -8.72] & $0.06$ [-0.74, 0.86] \\
+\midrule
+Startup formation & SNI92 & Labour mobility & $0.63$ [0.41, 0.84] & $0.28$ [0.20, 0.36] \\
+ &  & Common ownership & $0.74$ [0.53, 0.94] & $0.23$ [0.17, 0.29] \\
+ &  & Industry hierarchy & $0.93$ [0.72, 1.15] & $0.08$ [-0.02, 0.19] \\
+ &  & Text initialization & $0.98$ [0.74, 1.23] & $0.01$ [-0.10, 0.11] \\
+\addlinespace[2pt]
+ & SNI02 & Labour mobility & $0.54$ [0.13, 0.95] & $0.21$ [0.12, 0.29] \\
+ &  & Common ownership & $0.73$ [0.31, 1.16] & $0.03$ [-0.04, 0.10] \\
+ &  & Input--output relatedness & $0.70$ [0.27, 1.13] & $0.18$ [-0.09, 0.45] \\
+ &  & Industry hierarchy & $0.48$ [0.07, 0.89] & $0.27$ [0.10, 0.43] \\
+ &  & Text initialization & $0.86$ [0.42, 1.30] & $-0.07$ [-0.24, 0.09] \\
+\addlinespace[2pt]
+ & SNI07 & Labour mobility & $1.01$ [0.39, 1.62] & $0.39$ [0.29, 0.49] \\
+ &  & Common ownership & $1.67$ [1.04, 2.30] & $0.08$ [0.03, 0.13] \\
+ &  & Input--output relatedness & $1.74$ [1.13, 2.36] & $0.09$ [-0.04, 0.22] \\
+ &  & Industry hierarchy & $1.06$ [0.46, 1.67] & $0.34$ [0.23, 0.46] \\
+ &  & Text initialization & $1.69$ [0.99, 2.40] & $0.06$ [-0.12, 0.24] \\
+\bottomrule
+\end{tabular}
+\end{table}
