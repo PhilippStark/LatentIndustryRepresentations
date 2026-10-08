@@ -293,7 +293,7 @@ def build_result4(args) -> None:
     run = args.run_name
     missing: list[Path] = []
     to_copy = [
-        (eval_dir / run / f"{run}_A_hierarchy_preservation.png", "result3_hierarchy_preservation.png"),
+        # result3_hierarchy_preservation is written by scripts/paper/plot_hierarchy_preservation.py.
         # result3_opportunity_space.png is written directly by
         # scripts/paper/plot_opportunity_space.py.
         (project_root / "results" / "regional_entry" / f"{run}_entry.png", "result4_entry.png"),

@@ -17,7 +17,7 @@ standardised within the period.
 Inputs   <LATENT_DATA_ROOT>/robustness/single_source_density/multiple_regression{suffix}.csv
 Outputs  results/paper/result4_multiple_regression{suffix}.{png,pdf}
              main-text figure: industry entry, industry exit, startup formation
-             (panels side by side at full page width)
+             (16-inch canvas like Figs. 5–7; place at full page width)
          results/paper/appendix/multiple_regression_growth{suffix}.{png,pdf}
              SI figure: positive employment growth, positive wage growth
          results/paper/appendix/multiple_regression{suffix}.tex
@@ -81,11 +81,13 @@ for col in [c for c in df.columns if c.endswith(("_coef", "_ci_low", "_ci_high")
 # Figure: one full-width panel per outcome (true size, PNAS page width 17.8 cm)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 7, "axes.linewidth": 0.6,
-                     "xtick.major.width": 0.6, "ytick.major.width": 0.6})
-PERIOD_OFFSET = {"SNI92": -0.28, "SNI02": 0.0, "SNI07": 0.28}
-DENSITY_OFFSET = {"opportunity": -0.065, "view": 0.065}
-FIG_H = 4.6             # inches; panels side by side at full page width
+# Drawn like Figs. 5–7 (regional_figures.py): a 16-inch-wide canvas with matplotlib's
+# default font sizes, scaled to the page width in the manuscript, so that text and
+# lines appear at the same size as in those figures.
+CANVAS_W = 16.0
+PERIOD_OFFSET = {"SNI92": -0.29, "SNI02": 0.0, "SNI07": 0.29}
+DENSITY_OFFSET = {"opportunity": -0.07, "view": 0.07}
+FIG_H = 6.6             # inches on the 16-inch canvas (≈ 7.3 cm at page width)
 
 
 def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
@@ -94,7 +96,8 @@ def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
         print(f"  (no estimates for {list(outcomes)} yet — {out.name} skipped)")
         return
     view_keys = list(VIEWS)
-    fig, axes = plt.subplots(1, len(present), figsize=(17.8 / 2.54, FIG_H), sharey=True, squeeze=False)
+    fig, axes = plt.subplots(1, len(present), figsize=(CANVAS_W * len(present) / 3, FIG_H),
+                             sharey=True, squeeze=False)
     for ax, outcome in zip(axes[0], present):
         sub = df[df["outcome"] == outcome]
         for y, view in enumerate(view_keys):
@@ -102,36 +105,39 @@ def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
                 ax.axhspan(y - 0.45, y + 0.45, color="#f2f2f2", zorder=0, lw=0)
             for period, color in PERIODS.items():
                 row = sub[(sub["view"] == view) & (sub["period"] == period)]
-                if row.empty:
+                if row.empty:   # e.g. no input–output source exists for SNI92
+                    ax.text(0.02, y + PERIOD_OFFSET[period], f"no {period} data",
+                            transform=ax.get_yaxis_transform(), ha="left", va="center",
+                            fontsize=8, color=color, style="italic")
                     continue
                 row = row.iloc[0]
                 for name, marker in [("opportunity", "o"), ("view", "s")]:
                     c = row[f"{name}_coef"]
                     ax.errorbar(c, y + PERIOD_OFFSET[period] + DENSITY_OFFSET[name],
                                 xerr=[[c - row[f"{name}_ci_low"]], [row[f"{name}_ci_high"] - c]],
-                                fmt=marker, color=color, ms=4.2 if marker == "o" else 3.8, lw=1.0,
-                                capsize=2.0, capthick=1.0, mew=1.0,
+                                fmt=marker, color=color, ms=6 if marker == "o" else 5.5, lw=1.4,
+                                capsize=2.5, capthick=1.4, mew=1.4,
                                 mfc=color if name == "opportunity" else "white", zorder=3)
-        ax.axvline(0, color="black", lw=0.7, zorder=1)
-        ax.set_title(outcomes[outcome], fontsize=8, fontweight="bold")
+        ax.axvline(0, color="black", lw=0.8, zorder=1)
+        ax.set_title(outcomes[outcome])
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
-        ax.xaxis.grid(True, linestyle=":", lw=0.5, alpha=0.7)
+        ax.xaxis.grid(True, linestyle="--", alpha=0.4)
         ax.set_axisbelow(True)
         ax.tick_params(axis="y", length=0)
         ax.set_ylim(len(view_keys) - 0.5, -0.5)
     axes[0, 0].set_yticks(range(len(view_keys)))
     axes[0, 0].set_yticklabels([VIEW_LABELS_2L[v] for v in view_keys])
     fig.supxlabel("Coefficient per one-standard-deviation increase in density "
-                  "(percentage points), 95% CI", fontsize=7, y=0.085)
-    handles = [Line2D([], [], color=c, marker="o", ls="", ms=4.2, label=p) for p, c in PERIODS.items()]
+                  "(percentage points), 95% CI", fontsize=10, y=0.1)
+    handles = [Line2D([], [], color=c, marker="o", ls="", ms=6, label=p) for p, c in PERIODS.items()]
     handles += [
-        Line2D([], [], color="#555555", marker="o", ls="", ms=4.2, label="Opportunity density"),
-        Line2D([], [], color="#555555", marker="s", mfc="white", ls="", ms=3.8, mew=1.0,
+        Line2D([], [], color="#555555", marker="o", ls="", ms=6, label="Opportunity density"),
+        Line2D([], [], color="#555555", marker="s", mfc="white", ls="", ms=5.5, mew=1.4,
                label="Relational-view density"),
     ]
-    fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=7,
-               bbox_to_anchor=(0.5, 0.0), handletextpad=0.3, columnspacing=1.6)
-    fig.tight_layout(rect=(0, 0.5 / fig.get_figheight(), 1, 1), w_pad=0.6)
+    fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=10,
+               bbox_to_anchor=(0.5, 0.0), handletextpad=0.3, columnspacing=2.0)
+    fig.tight_layout(rect=(0, 0.72 / fig.get_figheight(), 1, 1), w_pad=1.0)
     out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out.with_suffix(".png"), dpi=args.dpi)
     fig.savefig(out.with_suffix(".pdf"))

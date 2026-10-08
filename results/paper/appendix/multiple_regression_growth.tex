@@ -1,0 +1,45 @@
+\begin{table}[htbp]
+\centering
+\scriptsize
+\caption{Multiple regressions of positive employment and wage growth on opportunity density and one relational-view density. Each row is one linear probability model, estimated per classification period, with both densities (each standardised within the period) and municipality$\times$year and industry fixed effects; standard errors are clustered by municipality and industry. Coefficients in percentage points per standard deviation, 95\% confidence intervals in brackets. Labour mobility and common ownership enter as the row-normalised relations used in training; input--output relatedness is not available for SNI92.}
+\label{tab:multiple_regression_growth}
+\begin{tabular}{lllcc}
+\toprule
+Outcome & Period & Relational view & Opportunity density & Relational-view density \\
+\midrule
+Positive employment growth & SNI92 & Labour mobility & $-0.20$ [-1.71, 1.31] & $2.49$ [2.07, 2.91] \\
+ &  & Common ownership & $2.48$ [0.94, 4.02] & $1.41$ [0.82, 1.99] \\
+ &  & Industry hierarchy & $4.00$ [2.43, 5.57] & $0.32$ [-0.39, 1.02] \\
+ &  & Text initialization & $5.31$ [3.45, 7.17] & $-0.52$ [-1.18, 0.15] \\
+\addlinespace[2pt]
+ & SNI02 & Labour mobility & $-0.04$ [-1.50, 1.42] & $2.43$ [1.58, 3.29] \\
+ &  & Common ownership & $1.53$ [0.03, 3.03] & $0.97$ [0.02, 1.91] \\
+ &  & Input--output relatedness & $2.71$ [1.27, 4.15] & $-1.31$ [-3.23, 0.62] \\
+ &  & Industry hierarchy & $2.11$ [0.67, 3.55] & $0.36$ [-0.61, 1.33] \\
+ &  & Text initialization & $2.45$ [0.60, 4.29] & $-0.02$ [-1.09, 1.05] \\
+\addlinespace[2pt]
+ & SNI07 & Labour mobility & $1.59$ [-0.10, 3.28] & $3.09$ [2.62, 3.55] \\
+ &  & Common ownership & $6.13$ [4.34, 7.92] & $0.92$ [0.52, 1.31] \\
+ &  & Input--output relatedness & $7.06$ [5.36, 8.77] & $1.14$ [-0.03, 2.32] \\
+ &  & Industry hierarchy & $5.94$ [4.13, 7.76] & $1.33$ [0.61, 2.05] \\
+ &  & Text initialization & $7.85$ [5.70, 9.99] & $-0.21$ [-1.11, 0.68] \\
+\midrule
+Positive wage growth & SNI92 & Labour mobility & $0.18$ [-1.59, 1.96] & $1.78$ [1.24, 2.32] \\
+ &  & Common ownership & $2.70$ [0.94, 4.46] & $0.42$ [-0.21, 1.06] \\
+ &  & Industry hierarchy & $3.58$ [1.52, 5.64] & $-0.30$ [-1.44, 0.84] \\
+ &  & Text initialization & $4.38$ [1.88, 6.87] & $-0.62$ [-1.56, 0.33] \\
+\addlinespace[2pt]
+ & SNI02 & Labour mobility & $0.12$ [-1.32, 1.56] & $1.86$ [1.09, 2.62] \\
+ &  & Common ownership & $1.66$ [0.19, 3.13] & $0.33$ [-0.47, 1.12] \\
+ &  & Input--output relatedness & $2.56$ [1.02, 4.11] & $-2.51$ [-4.61, -0.41] \\
+ &  & Industry hierarchy & $1.78$ [0.08, 3.48] & $0.24$ [-1.12, 1.61] \\
+ &  & Text initialization & $1.81$ [-0.20, 3.83] & $0.13$ [-0.99, 1.25] \\
+\addlinespace[2pt]
+ & SNI07 & Labour mobility & $-2.15$ [-4.19, -0.11] & $2.52$ [1.89, 3.14] \\
+ &  & Common ownership & $1.62$ [-0.20, 3.44] & $0.38$ [-0.21, 0.98] \\
+ &  & Input--output relatedness & $1.80$ [-0.14, 3.73] & $0.94$ [-0.10, 1.98] \\
+ &  & Industry hierarchy & $1.86$ [-0.27, 4.00] & $0.33$ [-0.90, 1.56] \\
+ &  & Text initialization & $3.33$ [0.92, 5.74] & $-0.90$ [-2.09, 0.30] \\
+\bottomrule
+\end{tabular}
+\end{table}
