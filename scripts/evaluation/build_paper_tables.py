@@ -180,8 +180,8 @@ def build_result1(args) -> None:
     matrices = {
         "A. Correlation (Spearman rho)": corr,
         "B. Nearest-neighbour overlap (Jaccard@k)": nn_overlap,
-        "D. Centered Kernel Alignment": cka,
-        "E. Mutual information": mi,
+        "C. Centered Kernel Alignment": cka,
+        "D. Mutual information": mi,
     }
     for label, mat in matrices.items():
         stem = label.split(".")[0].strip().lower()

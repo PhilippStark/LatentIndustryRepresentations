@@ -17,10 +17,10 @@ Analyses (one sources × sources matrix each)
 A  Spearman correlation of pairwise values over division pairs covered by both sources
 B  Nearest-neighbour overlap: Jaccard overlap of each division's top --topk
    neighbours, averaged over divisions
-D  Linear CKA between the sources' similarity matrices
-E  Mutual information (kNN estimator, symmetrised) between pairwise values
+C  Linear CKA between the sources' similarity matrices
+D  Mutual information (kNN estimator, symmetrised) between pairwise values
 
-Outputs: results/source_complementarity/P01_{a,b,d,e}_*_matrix.csv and a figure.
+Outputs: results/source_complementarity/P01_{a,b,c,d}_matrix.csv and a figure.
 build_paper_tables.py restricts these to the sources used in a given run.
 
 Usage
@@ -265,8 +265,8 @@ def main() -> None:
     matrices = {
         "A. Correlation (Spearman rho)": corr,
         "B. Nearest-neighbour overlap (Jaccard@k)": nn_overlap,
-        "D. Centered Kernel Alignment (CKA)": cka,
-        "E. Mutual information": mi,
+        "C. Centered Kernel Alignment (CKA)": cka,
+        "D. Mutual information": mi,
     }
     for label, mat in matrices.items():
         stem = label.split(".")[0].strip().lower()

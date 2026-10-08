@@ -10,7 +10,7 @@
 \label{app:fe_robustness}
 
 \paragraph{Main specification.} The regional regressions relate an industry's
-entry, exit or start-up entry in a municipality to its relatedness density
+entry, exit or startup formation in a municipality to its relatedness density
 in a linear probability model,
 \begin{equation}
   y_{jmt} = \beta\, \tilde{D}_{jmt} + \alpha_{mt} + \gamma_{j} + \varepsilon_{jmt},
@@ -22,7 +22,7 @@ everything that varies at the level of a municipality in a given year, such
 as total employment, the number of active industries and the local business
 cycle, so $\beta$ is identified from differences in density across
 industries within the same municipality and year. Because the candidate sets
-are unbalanced (entry and start-up entry are defined for industries absent
+are unbalanced (entry and startup formation are defined for industries absent
 from a municipality in the base year, exit for industries present), the
 fixed effects are absorbed exactly by alternating projections iterated to
 convergence, after dropping singleton observations. Each model is estimated
@@ -49,7 +49,7 @@ Figure~\ref{fig:fe_robustness_annual} shows the year-specific effects with
 95\% confidence intervals.
 
 The additive specification gives estimates close to the main specification
-in all periods except SNI92, where the entry and start-up entry effects are
+in all periods except SNI92, where the entry and startup formation effects are
 somewhat smaller (4.58 vs.\ 6.05 and 0.87 vs.\ 1.05 percentage points), with
 overlapping confidence intervals. Municipality--year shocks therefore matter
 little beyond additive municipality and year effects.
@@ -58,10 +58,10 @@ Specification (3) identifies $\beta$ only from changes in density over time
 within a municipality--industry cell. This is a demanding test: most of the
 variation in density is between cells, and a cell leaves the candidate set
 after an entry (exit) event. In SNI92 and SNI07 the effects keep their signs
-and remain significant. For SNI07, the entry and start-up entry effects are
+and remain significant. For SNI07, the entry and startup formation effects are
 larger than in the main specification (6.51 and 3.33 percentage points) and
 the exit effect is smaller in magnitude ($-8.91$); for SNI92 all three are
-smaller (entry 2.51, exit $-3.68$, start-up entry 0.52). In the SNI02 period, which
+smaller (entry 2.51, exit $-3.68$, startup formation 0.52). In the SNI02 period, which
 covers only four base years, the within-cell variation is too small to
 estimate the effects precisely, and the confidence intervals include zero
 for all three outcomes. Year-specific effects are not shown for this

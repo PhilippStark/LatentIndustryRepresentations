@@ -1,7 +1,7 @@
 """
 R02_fixed_effects_robustness.py
 ===============================
-Robustness of the regional density effects (entry, exit, start-up entry) to
+Robustness of the regional density effects (entry, exit, startup formation) to
 the fixed-effects specification. The main specification is compared with
 two alternatives (latent_industry.regional.fixed_effects):
 
@@ -57,7 +57,7 @@ OUTCOMES = [
     # (panel folder, outcome column, label)
     ("entry",         "entry_industry", "Entry"),
     ("exit",          "exit_industry",  "Exit"),
-    ("startup_entry", "startup_entry",  "Start-up entry"),
+    ("startup_entry", "startup_entry",  "Startup formation"),
 ]
 SPEC_ORDER = ["main", "additive", "muni_ind"]
 SPEC_STYLE = {   # colour, legend label, x-offset of the annual markers

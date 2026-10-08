@@ -1,8 +1,8 @@
 """
 build_density_robustness_table.py
 =================================
-Writes results/paper/density_robustness.tex: the entry, exit and start-up
-entry density effects under the four density specifications produced by
+Writes results/paper/density_robustness.tex: the entry, exit and startup-formation
+density effects under the four density specifications produced by
 P04_entry.py / P04_exit.py / P04_startup_entry.py:
 
   D^A        --density-var ew  --no-log-employment-weights   (file suffix _ew_raw)
@@ -39,7 +39,7 @@ VARIANTS = [
 ]
 OUTCOMES = [("Entry", "regional_entry", "entry_industry"),
             ("Exit", "regional_exit", "exit_industry"),
-            ("Start-up entry", "regional_startup_entry", "startup_entry")]
+            ("Startup formation", "regional_startup_entry", "startup_entry")]
 PERIODS = ["SNI92", "SNI02", "SNI07"]
 
 

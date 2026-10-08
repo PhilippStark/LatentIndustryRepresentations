@@ -9,7 +9,7 @@ shared_cosine_v16 embeddings is refit (seconds).
 
 Inputs
 ------
-  results/paper/result1_source_complementarity_{a,b,d,e}_matrix.csv
+  results/paper/result1_source_complementarity_{a,b,c,d}_matrix.csv
   EMBEDDING_DIR/shared_cosine_v16/embeddings_sni{07,02,92}.npz
   results/regional_{entry,exit,startup_entry}/shared_cosine_v16_{summary,year_coefs}.csv
   PROCESSED_DATA_DIR/downstream_outcomes/{entry,exit,startup_entry}/shared_cosine_v16_panel.parquet
@@ -97,8 +97,8 @@ def build_result1() -> None:
     stems = [
         ("a", "A. Correlation (Spearman rho)"),
         ("b", "B. Nearest-neighbour overlap (Jaccard@k)"),
-        ("d", "D. Centered Kernel Alignment"),
-        ("e", "E. Mutual information"),
+        ("c", "C. Centered Kernel Alignment"),
+        ("d", "D. Mutual information"),
     ]
     matrices = {}
     for stem, label in stems:
