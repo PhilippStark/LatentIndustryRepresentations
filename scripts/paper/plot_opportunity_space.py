@@ -26,9 +26,11 @@ One run writes, from the same 2-D layout:
 
 Layout: t-SNE (cosine metric) of the 64-d embeddings, rotated so that its
 widest spread is horizontal (t-SNE axes carry no meaning). Pairs of points
-closer than MIN_SEPARATION are then pushed apart slightly so that dots and
-labels do not overlap on the detail sheet; the shift is a fraction of a dot
-on the overview.
+closer than MIN_SEPARATION are then pushed apart slightly; the shift is a
+fraction of a dot on the overview. The detail sheet spreads dense clusters
+further (--detail-separation, more horizontally than vertically since labels
+are wide) inside the same frame, so that every code label sits next to its
+own dot; its dots are therefore slightly displaced relative to the overview.
 
 Inputs   EMBEDDING_DIR/{run}/embeddings_sni07.npz
          metadata/mapping_Sni_4digits_2007.json, metadata/mapping_Sni_section_2007.json
@@ -70,16 +72,22 @@ parser.add_argument("--dpi", type=int, default=600, help="Resolution of the over
 parser.add_argument("--detail-dpi", type=int, default=200, help="Resolution of the detail-sheet PNG.")
 parser.add_argument("--detail-scale", type=float, default=0.85,
                     help="Detail sheet: inches per layout unit (the overview uses about 0.18).")
+parser.add_argument("--detail-separation", type=float, default=0.5,
+                    help="Detail sheet: minimum vertical distance between dots in layout units "
+                         "(horizontally --detail-aspect times more); dense clusters spread out so labels fit.")
+parser.add_argument("--detail-aspect", type=float, default=3.0,
+                    help="Detail sheet: horizontal / vertical spacing ratio (labels are wider than tall).")
 parser.add_argument("--out-dir", type=Path, default=RESULTS_DIR / "paper")
 args = parser.parse_args()
 
 STEM = "result3_opportunity_space"
 MIN_SEPARATION = 0.22       # layout units; about one dot diameter on the detail sheet
 PAGE_WIDTH_IN = 16 / 2.54   # A4 text width (21 cm minus 2 × 2.5 cm margins)
-DOT_SIZE = {"overview": 9, "detail": 110}        # marker area in pt²
-DOT_EDGE_WIDTH = {"overview": 0.25, "detail": 0.7}
+DOT_SIZE = {"overview": 9, "detail": 400}        # marker area in pt²
+DOT_EDGE_WIDTH = {"overview": 0.25, "detail": 1.3}
 N_NEIGHBOURS = 10
-LABEL_FONTSIZE = 9          # detail-sheet code labels
+LABEL_FONTSIZE = 20         # detail-sheet code labels; crops are scaled down ~5x into the insets
+LABEL_WEIGHT = "bold"
 GRID_STEP = 5.0             # layout units between locator grid lines
 
 # Muted colours in the style of the reference figure. The largest sections get
@@ -193,8 +201,8 @@ section_names.update({
 plt.rcParams.update({"font.family": "DejaVu Sans"})
 
 
-def draw_dots(ax, kind: str) -> None:
-    ax.scatter(xy[order, 0], xy[order, 1], c=list(colors[order]), s=DOT_SIZE[kind], alpha=0.95,
+def draw_dots(ax, kind: str, pos: np.ndarray) -> None:
+    ax.scatter(pos[order, 0], pos[order, 1], c=list(colors[order]), s=DOT_SIZE[kind], alpha=0.95,
                zorder=3, edgecolors="white", linewidths=DOT_EDGE_WIDTH[kind])
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
@@ -245,7 +253,7 @@ LEGEND_FONTSIZE = 5.5
 def overview(grid: bool) -> plt.Figure:
     fig = plt.figure(figsize=(FIG_W, FIG_H))
     ax = fig.add_axes(MAP_BOX)
-    draw_dots(ax, "overview")
+    draw_dots(ax, "overview", xy)
     if grid:
         draw_grid(ax, fontsize=3.5)
     present = [s for s in SECTION_COLORS if s in set(sections)]
@@ -278,7 +286,7 @@ def place_labels(points_pt: np.ndarray, texts: list[str], radius_pt: float,
                  fontsize: float) -> list[tuple[float, float, str, str]]:
     """Greedy label placement: try eight positions around each dot and take the
     first that overlaps neither another label nor another dot (in points)."""
-    char_w, height = 0.62 * fontsize, 1.0 * fontsize
+    char_w, height = 0.68 * fontsize, 1.0 * fontsize   # bold digits are wider
     gap = radius_pt + 1.5
     candidates = [  # (dx, dy, ha, va) relative to the dot centre
         (gap, 0, "left", "center"), (-gap, 0, "right", "center"),
@@ -295,40 +303,62 @@ def place_labels(points_pt: np.ndarray, texts: list[str], radius_pt: float,
     dots = np.column_stack([points_pt - radius_pt, points_pt + radius_pt])
     placed: list[np.ndarray] = []
     out = []
+    n_fallback = 0
+
+    def overlap(a, b):
+        return max(0.0, min(a[2], b[2]) - max(a[0], b[0])) * max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+
     tree = cKDTree(points_pt)
     for i in np.argsort(-np.array([len(tree.query_ball_point(p, 40)) for p in points_pt])):
         w = char_w * len(texts[i])
-        chosen = None
         near = [j for j in tree.query_ball_point(points_pt[i], w + 3 * gap) if j != i]
-        for dx, dy, ha, va in candidates:
+        near_labels = [q for q in placed if abs(q[0] - points_pt[i, 0]) < 3 * w and abs(q[1] - points_pt[i, 1]) < 3 * w]
+        best, best_cost = None, np.inf
+        for dx, dy, ha, va in candidates:   # first free position, else the least-overlapping one
             b = box(points_pt[i, 0] + dx, points_pt[i, 1] + dy, w, ha, va)
-            hits_dot = any(b[0] < dots[j, 2] and b[2] > dots[j, 0] and b[1] < dots[j, 3] and b[3] > dots[j, 1]
-                           for j in near)
-            hits_label = any(b[0] < q[2] and b[2] > q[0] and b[1] < q[3] and b[3] > q[1] for q in placed)
-            if not hits_dot and not hits_label:
-                chosen = (b, dx, dy, ha, va)
+            cost = sum(overlap(b, dots[j]) for j in near) + sum(overlap(b, q) for q in near_labels)
+            if cost < best_cost:
+                best, best_cost = (b, dx, dy, ha, va), cost
+            if cost == 0:
                 break
-        if chosen is None:
-            dx, dy, ha, va = candidates[0]
-            chosen = (box(points_pt[i, 0] + dx, points_pt[i, 1] + dy, w, ha, va), dx, dy, ha, va)
+        chosen = best
+        n_fallback += best_cost > 0
         placed.append(chosen[0])
         out.append((i, chosen[1], chosen[2], chosen[3], chosen[4]))
+    print(f"  detail labels: {n_fallback} of {len(texts)} could not avoid overlap")
     return out
+
+
+# Detail positions: the overview layout with dense clusters pushed further apart
+# so that dots and labels fit. After each spreading pass the layout is fitted
+# back into the overview's bounding box, so the detail sheet keeps the same
+# frame and aspect ratio as the overview.
+stretch = np.array([1 / args.detail_aspect, 1.0])     # separate in a squashed frame, then undo
+lo, hi = xy.min(axis=0), xy.max(axis=0)
+xy_detail = xy.copy()
+for _ in range(10):
+    xy_detail = separate(xy_detail * stretch, args.detail_separation, iterations=500) / stretch
+    d_lo, d_hi = xy_detail.min(axis=0), xy_detail.max(axis=0)
+    xy_detail = lo + (xy_detail - d_lo) * (hi - lo) / (d_hi - d_lo)
+shift = np.linalg.norm(xy_detail - xy, axis=1)
+print(f"  detail separation: {int(np.sum(shift > 1e-9))} points moved, max shift {shift.max():.3f} units; "
+      f"closest pair (spread metric) {cKDTree(xy_detail * stretch).query(xy_detail * stretch, k=2)[0][:, 1].min():.3f}")
 
 
 def detail(grid: bool) -> plt.Figure:
     width, height = span_x * args.detail_scale, span_y * args.detail_scale
     fig = plt.figure(figsize=(width, height))
     ax = fig.add_axes([0, 0, 1, 1])
-    draw_dots(ax, "detail")
+    draw_dots(ax, "detail", xy_detail)
     if grid:
         draw_grid(ax, fontsize=40)
     pt_per_unit = args.detail_scale * 72
-    points_pt = np.column_stack([(xy[:, 0] - xlim[0]) * pt_per_unit, (xy[:, 1] - ylim[0]) * pt_per_unit])
+    points_pt = np.column_stack([(xy_detail[:, 0] - xlim[0]) * pt_per_unit,
+                                 (xy_detail[:, 1] - ylim[0]) * pt_per_unit])
     radius_pt = np.sqrt(DOT_SIZE["detail"]) / 2
     for i, dx, dy, ha, va in place_labels(points_pt, codes, radius_pt, LABEL_FONTSIZE):
-        ax.annotate(codes[i], xy[i], xytext=(dx, dy), textcoords="offset points", ha=ha, va=va,
-                    fontsize=LABEL_FONTSIZE, color="#333333", zorder=4)
+        ax.annotate(codes[i], xy_detail[i], xytext=(dx, dy), textcoords="offset points", ha=ha, va=va,
+                    fontsize=LABEL_FONTSIZE, fontweight=LABEL_WEIGHT, color="#222222", zorder=4)
     return fig
 
 
