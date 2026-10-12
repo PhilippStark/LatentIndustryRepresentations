@@ -15,7 +15,7 @@ B. Cross-version retrieval (SNI02 → SNI07)
 ════════════════════════════════════════════════════════════
   SNI02 codes evaluated: 514
   Mean Reciprocal Rank (MRR):  0.8126
-  Mean Average Precision (MAP): 0.7003  (scores against ALL true partners, not just the first hit — see v7 §4.1)
+  Mean Average Precision (MAP): 0.7003  (scores against all true partners, not just the first hit)
   Recall@1  :                 0.7179
   Recall@5  :                 0.9416
   Recall@10 :                 0.9767
@@ -123,8 +123,6 @@ D. t-SNE visualisation
 ════════════════════════════════════════════════════════════
   Running t-SNE on 1619 codes …
   → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_tsne_by_version.png
-  → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_tsne_all_by_section.png
-  → /lunarc/nobackup/projects/lu2025-17-39/DataLatentIndustryRepresentations/results/interactive_plots/shared_cosine_v16_D_tsne_interactive.html
 
   Aligned vs random cosine similarity distribution …
   → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_D_aligned_vs_random_similarity.png

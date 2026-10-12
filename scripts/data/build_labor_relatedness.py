@@ -38,8 +38,8 @@ towards 1.
 Minimum evidence
 ----------------
 A pair is kept only if at least --min-labor-count workers moved between the
-two industries (both directions, pooled over the period). The main run uses
---min-labor-count 10.
+two industries (both directions, pooled over the period); default 10, as in
+the main run.
 
 Output
 ------
@@ -48,7 +48,7 @@ Output
 
 Usage
 -----
-  python scripts/data/build_labor_relatedness.py --min-labor-count 10
+  python scripts/data/build_labor_relatedness.py
 """
 
 import argparse
@@ -87,7 +87,7 @@ parser.add_argument(
 parser.add_argument(
     "--min-labor-count",
     type=int,
-    default=3,
+    default=10,
     help="Minimum total observed movers (both directions, pooled over the whole period) "
          "for a pair to be kept at all. "
          "Raising this keeps only higher-evidence pairs (fewer, more confident edges).",

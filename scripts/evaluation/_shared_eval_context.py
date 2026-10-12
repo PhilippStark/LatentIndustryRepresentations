@@ -8,13 +8,13 @@ directly.
 
 Provides
 --------
-- add_common_args: --run-name, --model-dir, --baseline (and --graph-name for P02).
-- build_base_context: SNI descriptions and section maps, the run's 4-digit
-  embeddings for SNI92/SNI02/SNI07 (read from
-  EMBEDDING_DIR/{run}/embeddings_*.npz) and the run's training_provenance.json.
-- load_baseline_and_hub_embeddings (P02 only): the untrained text-encoder
-  baseline (sentence-transformers/all-MiniLM-L6-v2) and the hierarchy-hub
-  embeddings.
+- add_common_args: --run-name.
+- build_base_context: SNI descriptions and section maps and the run's 4-digit
+  embeddings for SNI92/SNI02/SNI07 (EMBEDDING_DIR/{run}/embeddings_*.npz).
+- load_baseline_and_hub_embeddings (P02 only): the baseline, i.e. the
+  untrained text encoder (sentence-transformers/all-MiniLM-L6-v2, 384-d,
+  without the PCA to 64-d used to initialise training), and the run's
+  hierarchy-hub embeddings.
 - load_crosswalks: the SCB correspondence tables SNI92→SNI02→SNI07.
 - Metric helpers (hierarchy-level similarity pairs, retrieval, average
   precision) and compute_key_metrics, which recomputes every scalar metric
@@ -49,9 +49,6 @@ BASE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 SEED       = 42
 
 DEFAULT_RUN_NAME  = "shared_cosine_v16"
-DEFAULT_GRAPH_NAME = "layers_v1"
-DEFAULT_MODEL_DIR = str(EMBEDDING_DIR / DEFAULT_RUN_NAME / "model_final")
-DEFAULT_BASELINE  = False
 
 
 # ── Tee: write to both stdout and a log file ───────────────────────────────────
@@ -83,21 +80,10 @@ def _prefix_groups(codes: list[str], n: int) -> dict[str, list[str]]:
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
 
-def add_common_args(parser, *, graph_name: bool = True):
-    """
-    Add --baseline, --model-dir, --run-name and, unless graph_name=False,
-    --graph-name (needed by P02 only).
-    """
-    parser.add_argument("--baseline", action="store_true", default=DEFAULT_BASELINE,
-                        help="Use raw BASE_MODEL instead of the fine-tuned model.")
-    parser.add_argument("--model-dir", default=DEFAULT_MODEL_DIR,
-                        help="Path to model_final directory.")
+def add_common_args(parser):
+    """Add --run-name."""
     parser.add_argument("--run-name", default=DEFAULT_RUN_NAME,
                         help="Embedding run under EMBEDDING_DIR; also the label of the output folder.")
-    if graph_name:
-        parser.add_argument("--graph-name", default=DEFAULT_GRAPH_NAME,
-                            help="Graph --name (build_layer_transition_matrices.py) whose "
-                                 "graph_edges/graph_nodes files sections H/I/J/K read.")
     return parser
 
 
@@ -117,70 +103,22 @@ def _load_codes(filename: str, drop_key: str) -> dict[str, str]:
     return d
 
 
-# ── Load or compute embeddings ─────────────────────────────────────────────────
+# ── Load embeddings ────────────────────────────────────────────────────────────
 
-# Exported 4-digit embeddings are named embeddings_sni07.npz etc.
-# (training/operator_embedding.export_embeddings); map the lookup labels to them.
-_LABEL_ALIASES = {"sni07_4d": "sni07", "sni02_4d": "sni02", "sni92_4d": "sni92"}
-
-
-def load_or_encode(
-    label: str, code_to_text: dict[str, str], model, *, baseline: bool, eff_embed_dir: Path,
-) -> tuple[np.ndarray, list[str]]:
-    candidates = [label] + ([_LABEL_ALIASES[label]] if label in _LABEL_ALIASES else [])
-    if not baseline:
-        for candidate in candidates:
-            npz_path = eff_embed_dir / f"embeddings_{candidate}.npz"
-            if npz_path.exists():
-                data  = np.load(npz_path, allow_pickle=True)
-                codes = list(data["codes"])
-                vecs  = data["embeddings"].astype(np.float32)
-                print(f"  {label}: loaded {len(codes)} embeddings from disk ({npz_path.name})")
-                return vecs, codes
-
-    print(f"  {label}: encoding {len(code_to_text)} codes with model …")
-    codes = sorted(code_to_text.keys())
-    texts = [code_to_text[c] for c in codes]
-    vecs  = model.encode(texts, batch_size=128, show_progress_bar=False, normalize_embeddings=True)
-    return vecs.astype(np.float32), codes
-
-
-def load_model(args):
-    from sentence_transformers import SentenceTransformer
-    if args.baseline:
-        print(f"Mode: BASELINE (raw {BASE_MODEL})")
-        return SentenceTransformer(BASE_MODEL)
-    elif args.model_dir is not None:
-        model_path = Path(args.model_dir)
-        if model_path.exists():
-            print(f"Mode: FINE-TUNED ({model_path})  [--model-dir override]")
-            return SentenceTransformer(str(model_path))
-        else:
-            print(f"WARNING: {model_path} not found — falling back to baseline model.")
-            return SentenceTransformer(BASE_MODEL)
-    else:
-        model_path = embed_dir / "model_final"
-        if model_path.exists():
-            print(f"Mode: FINE-TUNED ({model_path})")
-            return SentenceTransformer(str(model_path))
-        else:
-            print(f"WARNING: {model_path} not found — falling back to baseline model.")
-            return SentenceTransformer(BASE_MODEL)
-
-
-# Hub embeddings read from the cached embeddings_sni07_{3d,2d,section}.npz are
-# aggregates of their 4-digit descendants, not encodings of the hub
-# descriptions; metrics computed from them get a distinct label suffix.
-_HUB_LABEL_BY_SUFFIX = {"3d": "sni07_3d", "2d": "sni07_2d", "section": "sni07_section"}
+def load_embeddings(label: str, run_dir: Path) -> tuple[np.ndarray, list[str]]:
+    """embeddings_{label}.npz written by training/operator_embedding.export_embeddings."""
+    data = np.load(run_dir / f"embeddings_{label}.npz", allow_pickle=True)
+    codes = list(data["codes"])
+    vecs = data["embeddings"].astype(np.float32)
+    print(f"  {label}: loaded {len(codes)} embeddings")
+    return vecs, codes
 
 
 def build_base_context(args) -> SimpleNamespace:
     """Everything both P02 and P03 need before their own narrative sections
-    run: eval_dir, SNI 4d descriptions/section maps, the fine-tuned (or
-    baseline, if --baseline) model, and the 4d atom embeddings/codes/index.
-    Does NOT load baseline-comparison or NACE-hub embeddings — call
-    load_baseline_and_hub_embeddings(ctx, args) separately for those
-    (P02-only; see this module's docstring)."""
+    run: eval_dir, SNI 4d descriptions/section maps, and the run's 4d
+    embeddings/codes/index. Baseline and hub embeddings are loaded separately
+    by load_baseline_and_hub_embeddings (P02 only)."""
     ctx = SimpleNamespace()
     ctx.args = args
 
@@ -196,35 +134,12 @@ def build_base_context(args) -> SimpleNamespace:
     ctx.section_map_02 = SNI_2digits_to_sections("SNI02")
     ctx.section_map_92 = SNI_2digits_to_sections("SNI92")
 
-    # Determine effective embed_dir (may be overridden by --model-dir)
-    if args.model_dir is not None:
-        ctx.eff_embed_dir = Path(args.model_dir).parent
-    else:
-        ctx.eff_embed_dir = embed_dir
-
-    # The training regime and family weights come from training_provenance.json
-    # (written by train_shared_cosine_embedding.py). The regime decides whether
-    # the fused-target fidelity checks (J2, K_fused) apply.
-    _provenance_path = ctx.eff_embed_dir / "training_provenance.json"
-    ctx.training_regime = None
-    ctx.family_weights: dict[str, float] = {}
-    if _provenance_path.exists() and not args.baseline:
-        try:
-            _provenance = json.loads(_provenance_path.read_text())
-            ctx.training_regime = _provenance.get("regime")
-            ctx.family_weights = _provenance.get("family_weights", {})
-        except (json.JSONDecodeError, OSError):
-            ctx.training_regime = None
-
-    ctx.model = load_model(args)
+    ctx.run_dir = embed_dir / args.run_name
 
     print("\nLoading embeddings …")
-    ctx.vecs_07, ctx.codes_07 = load_or_encode(
-        "sni07_4d", ctx.sni07, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
-    ctx.vecs_02, ctx.codes_02 = load_or_encode(
-        "sni02_4d", ctx.sni02, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
-    ctx.vecs_92, ctx.codes_92 = load_or_encode(
-        "sni92_4d", ctx.sni92, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
+    ctx.vecs_07, ctx.codes_07 = load_embeddings("sni07", ctx.run_dir)
+    ctx.vecs_02, ctx.codes_02 = load_embeddings("sni02", ctx.run_dir)
+    ctx.vecs_92, ctx.codes_92 = load_embeddings("sni92", ctx.run_dir)
 
     ctx.idx_07 = {c: i for i, c in enumerate(ctx.codes_07)}
     ctx.idx_02 = {c: i for i, c in enumerate(ctx.codes_02)}
@@ -234,64 +149,38 @@ def build_base_context(args) -> SimpleNamespace:
 
 
 def load_baseline_and_hub_embeddings(ctx: SimpleNamespace) -> None:
-    """P02-only (see module docstring): encodes the frozen BASE_MODEL
-    baseline (bl_vecs_07/02/92) for section G's delta comparison, and the
-    SNI07 hierarchy-hub descriptions (3d/2d/section — not fine-tuning
-    targets, so no cached embeddings_sni07_3d.npz etc. unless
-    operator_embedding's aggregation export wrote one; load_or_encode falls
-    through to live-encoding otherwise) needed by section H and by
-    compute_key_metrics. Mutates ctx in place."""
-    args = ctx.args
+    """P02-only (see module docstring): encodes the baseline (frozen
+    BASE_MODEL) for the SNI 4-digit codes and the SNI07 hub descriptions
+    (3d/2d/section), and loads the run's hub embeddings, which are aggregates
+    of their 4-digit descendants. Mutates ctx in place."""
+    print(f"\nEncoding baseline embeddings ({BASE_MODEL}) …")
+    from sentence_transformers import SentenceTransformer
+    model = SentenceTransformer(BASE_MODEL)
 
-    # ── Baseline embeddings (always encoded for delta comparison in section G) ─
-    if args.baseline:
-        ctx._bl_st = ctx.model   # primary is already BASE_MODEL; delta will be zero
-    else:
-        print(f"\nEncoding baseline embeddings ({BASE_MODEL}) for comparison …")
-        from sentence_transformers import SentenceTransformer
-        ctx._bl_st = SentenceTransformer(BASE_MODEL)
+    def encode(texts: list[str]) -> np.ndarray:
+        return model.encode(texts, batch_size=128, normalize_embeddings=True,
+                            show_progress_bar=False).astype(np.float32)
 
-    ctx.bl_vecs_07 = ctx._bl_st.encode([ctx.sni07.get(c, c) for c in ctx.codes_07],
-                                        batch_size=128, normalize_embeddings=True,
-                                        show_progress_bar=False).astype(np.float32)
-    ctx.bl_vecs_02 = ctx._bl_st.encode([ctx.sni02.get(c, c) for c in ctx.codes_02],
-                                        batch_size=128, normalize_embeddings=True,
-                                        show_progress_bar=False).astype(np.float32)
-    ctx.bl_vecs_92 = ctx._bl_st.encode([ctx.sni92.get(c, c) for c in ctx.codes_92],
-                                        batch_size=128, normalize_embeddings=True,
-                                        show_progress_bar=False).astype(np.float32)
+    ctx.bl_vecs_07 = encode([ctx.sni07.get(c, c) for c in ctx.codes_07])
+    ctx.bl_vecs_02 = encode([ctx.sni02.get(c, c) for c in ctx.codes_02])
+    ctx.bl_vecs_92 = encode([ctx.sni92.get(c, c) for c in ctx.codes_92])
 
-    # ── SNI07 hierarchy-hub descriptions (3d/2d/section) ───────────────────────
+    # ── SNI07 hierarchy hubs (3d/2d/section) ───────────────────────────────────
     ctx.desc_3d  = _load_codes("mapping_Sni_3digits_2007.json", "000")
     ctx.desc_2d  = _load_codes("mapping_Sni_2digits_2007.json", "00")
     ctx.desc_sec = _load_codes("mapping_Sni_section_2007.json", "Unknown")
 
-    print("\nEncoding SNI07 hierarchy-hub descriptions (3d/2d/section) …")
-    ctx.vecs_3d,  ctx.codes_3d  = load_or_encode(
-        "sni07_3d", ctx.desc_3d, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
-    ctx.vecs_2d,  ctx.codes_2d  = load_or_encode(
-        "sni07_2d", ctx.desc_2d, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
-    ctx.vecs_sec, ctx.codes_sec = load_or_encode(
-        "sni07_section", ctx.desc_sec, ctx.model, baseline=args.baseline, eff_embed_dir=ctx.eff_embed_dir)
+    print("\nLoading SNI07 hierarchy-hub embeddings (3d/2d/section) …")
+    ctx.vecs_3d,  ctx.codes_3d  = load_embeddings("sni07_3d", ctx.run_dir)
+    ctx.vecs_2d,  ctx.codes_2d  = load_embeddings("sni07_2d", ctx.run_dir)
+    ctx.vecs_sec, ctx.codes_sec = load_embeddings("sni07_section", ctx.run_dir)
     ctx.idx_3d  = {c: i for i, c in enumerate(ctx.codes_3d)}
     ctx.idx_2d  = {c: i for i, c in enumerate(ctx.codes_2d)}
     ctx.idx_sec = {c: i for i, c in enumerate(ctx.codes_sec)}
 
-    _hub_from_cache = {
-        lbl: (ctx.eff_embed_dir / f"embeddings_{lbl}.npz").exists() and not args.baseline
-        for lbl in _HUB_LABEL_BY_SUFFIX.values()
-    }
-    ctx._hub_from_cache = _hub_from_cache
-
-    ctx.bl_vecs_3d  = ctx._bl_st.encode([ctx.desc_3d.get(c, c) for c in ctx.codes_3d],
-                                         batch_size=128, normalize_embeddings=True,
-                                         show_progress_bar=False).astype(np.float32)
-    ctx.bl_vecs_2d  = ctx._bl_st.encode([ctx.desc_2d.get(c, c) for c in ctx.codes_2d],
-                                         batch_size=128, normalize_embeddings=True,
-                                         show_progress_bar=False).astype(np.float32)
-    ctx.bl_vecs_sec = ctx._bl_st.encode([ctx.desc_sec.get(c, c) for c in ctx.codes_sec],
-                                         batch_size=128, normalize_embeddings=True,
-                                         show_progress_bar=False).astype(np.float32)
+    ctx.bl_vecs_3d  = encode([ctx.desc_3d.get(c, c) for c in ctx.codes_3d])
+    ctx.bl_vecs_2d  = encode([ctx.desc_2d.get(c, c) for c in ctx.codes_2d])
+    ctx.bl_vecs_sec = encode([ctx.desc_sec.get(c, c) for c in ctx.codes_sec])
 
 
 # ── Hierarchy-level pair sampling (section A; also used by compute_key_metrics) ─
@@ -414,43 +303,8 @@ def load_crosswalks(ctx: SimpleNamespace) -> None:
     ctx.true_targets_92 = true_targets_92
 
 
-# ── Shared helpers for sections H/I/J — pure functions of their inputs so
+# ── Shared helpers for section I — pure functions of their inputs so
 # compute_key_metrics (section G) can reuse them on baseline embeddings too ───
-
-def relation_consistency(
-    etype: str, idx_map: dict, vecs_l: np.ndarray, edges_df: pd.DataFrame, node_lookup: dict
-) -> tuple[list, list]:
-    """Ground-truth edge weight and matching fine-tuned cosine similarity for
-    every `etype` edge whose endpoints resolve to codes in idx_map."""
-    sub = edges_df[edges_df["type"] == etype]
-    gt, sim = [], []
-    for r in sub.itertuples():
-        ca = node_lookup.get(int(r.src))
-        cb = node_lookup.get(int(r.dst))
-        if ca in idx_map and cb in idx_map:
-            gt.append(float(r.weight))
-            sim.append(float(vecs_l[idx_map[ca]] @ vecs_l[idx_map[cb]]))
-    return gt, sim
-
-
-def nace_consistency_metrics(
-    ctx: SimpleNamespace,
-    v07: np.ndarray, v3d: np.ndarray, v2d: np.ndarray, vsec: np.ndarray,
-    edges_df: pd.DataFrame, node_lookup: dict,
-) -> dict:
-    out = {}
-    for etype, idx_map, vecs_l, lbl in [
-        ("nace_4d",  ctx.idx_07,  v07,  "4d"),
-        ("nace_3d",  ctx.idx_3d,  v3d,  "3d"),
-        ("nace_2d",  ctx.idx_2d,  v2d,  "2d"),
-        ("nace_sec", ctx.idx_sec, vsec, "section"),
-    ]:
-        gt, sim = relation_consistency(etype, idx_map, vecs_l, edges_df, node_lookup)
-        if len(gt) >= 10:
-            rho, _ = spearmanr(sim, gt)
-            out[f"H_nace_rho_{lbl}"] = round(float(rho), 4)
-    return out
-
 
 def io_consistency_metric(ctx: SimpleNamespace, v2d: np.ndarray, io_df: pd.DataFrame) -> dict:
     gt, sim = [], []
@@ -492,93 +346,18 @@ def aggregate_up_io_metric(v07: np.ndarray, codes07: list[str], io_df: pd.DataFr
     return {}
 
 
-def _align_to_diffusion_matrix(
-    ctx: SimpleNamespace,
-    v07: np.ndarray, v02: np.ndarray, v92: np.ndarray, dm_codes: np.ndarray, dm_versions: np.ndarray
-) -> tuple[np.ndarray, np.ndarray]:
-    """Build an (n_dm, dim) embedding array in diffusion_matrix_{name}.npz's own
-    node order, by looking each (code, version) up in the matching vecs_*/idx_*."""
-    vecs_by_ver = {"SNI07": (v07, ctx.idx_07), "SNI02": (v02, ctx.idx_02), "SNI92": (v92, ctx.idx_92)}
-    n_dm = len(dm_codes)
-    dm_vecs  = np.zeros((n_dm, v07.shape[1]), dtype=np.float32)
-    dm_valid = np.zeros(n_dm, dtype=bool)
-    for i, (c, v) in enumerate(zip(dm_codes, dm_versions)):
-        vv, ii = vecs_by_ver[str(v)]
-        j = ii.get(str(c))
-        if j is not None:
-            dm_vecs[i] = vv[j]
-            dm_valid[i] = True
-    return dm_vecs, dm_valid
-
-
-# J2_target_fidelity / K_fused_target_KL measure fidelity to a single fused
-# diffusion target; they do not apply to regimes trained on separate
-# per-view targets.
-_SKIP_J2_REGIMES = {"shared_cosine_expanded"}
-
-
-def is_family_excluded(ctx: SimpleNamespace, family: str) -> bool:
-    """
-    True if `family` has a training weight of exactly 0.0 in the run's
-    training_provenance.json. Used to mark evaluation results for families
-    that were not part of the training objective. False for runs without a
-    provenance file and for families not listed in it.
-    """
-    return ctx.family_weights.get(family) == 0.0
-
-
-def repulsion_and_fidelity_metrics(
-    ctx: SimpleNamespace,
-    v07: np.ndarray, v02: np.ndarray, v92: np.ndarray,
-    S: np.ndarray, S_neg: np.ndarray, dm_codes: np.ndarray, dm_versions: np.ndarray,
-) -> dict:
-    out = {}
-    dm_vecs, dm_valid = _align_to_diffusion_matrix(ctx, v07, v02, v92, dm_codes, dm_versions)
-
-    # J1: repulsion pairs (S_neg > 0) should be LESS similar than other SNI07 pairs.
-    is_07 = dm_versions == "SNI07"
-    sub_idx = np.where(is_07 & dm_valid)[0]
-    if len(sub_idx) > 10:
-        sub_vecs = dm_vecs[sub_idx]
-        sim_mat  = sub_vecs @ sub_vecs.T
-        neg_sub  = S_neg[np.ix_(sub_idx, sub_idx)]
-        iu, ju   = np.triu_indices(len(sub_idx), k=1)
-        neg_w, sim_w = neg_sub[iu, ju], sim_mat[iu, ju]
-        repel_mask = neg_w > 0
-        if int(repel_mask.sum()) >= 10:
-            rho, _ = spearmanr(sim_w[repel_mask], neg_w[repel_mask])
-            out["J1_repulsion_rho"] = round(float(rho), 4)
-            out["J1_repulsion_gap"] = round(float(sim_w[~repel_mask].mean() - sim_w[repel_mask].mean()), 4)
-
-    # J2: did training converge to its own assigned diffusion target S?
-    if ctx.training_regime not in _SKIP_J2_REGIMES:
-        valid_idx = np.where(dm_valid)[0]
-        if len(valid_idx) > 10:
-            v_vecs = dm_vecs[valid_idx]
-            v_sim  = v_vecs @ v_vecs.T
-            v_S    = S[np.ix_(valid_idx, valid_idx)]
-            nz_i, nz_j = np.nonzero(v_S)
-            keep = nz_i != nz_j
-            nz_i, nz_j = nz_i[keep], nz_j[keep]
-            if len(nz_i) > 10:
-                rho, _ = spearmanr(v_sim[nz_i, nz_j], v_S[nz_i, nz_j])
-                out["J2_target_fidelity_rho"] = round(float(rho), 4)
-
-    return out
-
-
 # ── Shared helpers for section K — source-wise KL evaluation ──────────────────
-# For every evidence
-# family s, build P^(s) = row-normalised(A^(s)) directly from that source's
-# raw relation matrix (same construction as train_kl's target, just per
-# source instead of fused), and evaluate against the SAME cosine-softmax
-# Q the trainer optimises (identical tau). This tests the exact quantity
-# training minimises, per source — unlike H/I/J's Spearman correlations,
-# which only test rank agreement and can't be compared to a training loss.
+# For every evidence family s, build P^(s) = row-normalised(A^(s)) directly
+# from that source's raw relation matrix, and evaluate it against a
+# cosine-softmax Q at one fixed temperature (P02 --tau, default 0.05) for both
+# the baseline and the trained embeddings. Training instead learns one
+# temperature per target, bounded to [e^-1, e], and fits the diffusion
+# targets, so these KL values are a comparison between embeddings, not the
+# training loss itself.
 
 def _softmax_rows(sim: np.ndarray, tau: float) -> np.ndarray:
     """softmax(sim / tau, axis=1) with the diagonal already expected to be
-    -inf (self-similarity excluded, matching train_kl's cos_sim.fill_diagonal_)."""
+    -inf (self-similarity excluded, as in training)."""
     z = sim / tau
     z = z - np.max(z, axis=1, keepdims=True)
     ez = np.exp(z)
@@ -668,7 +447,7 @@ def kl_source_metrics(
     printed/saved Δ is always KL(raw) - KL(trained) at matched tau."""
     out: dict = {}
 
-    if ctx.labor_path.exists() and not is_family_excluded(ctx, "labor"):
+    if ctx.labor_path.exists():
         for coding, idx_, v_, lbl in [("SNI07", ctx.idx_07, v07, "07"),
                                        ("SNI02", ctx.idx_02, v02, "02"),
                                        ("SNI92", ctx.idx_92, v92, "92")]:
@@ -678,7 +457,7 @@ def kl_source_metrics(
             if res:
                 out[f"K_labor_KL_{lbl}"] = round(res["KL"], 4)
 
-    if ctx.ownership_path.exists() and not is_family_excluded(ctx, "ownership"):
+    if ctx.ownership_path.exists():
         for coding, idx_, v_, lbl in [("SNI07", ctx.idx_07, v07, "07"),
                                        ("SNI02", ctx.idx_02, v02, "02"),
                                        ("SNI92", ctx.idx_92, v92, "92")]:
@@ -688,19 +467,7 @@ def kl_source_metrics(
             if res:
                 out[f"K_ownership_KL_{lbl}"] = round(res["KL"], 4)
 
-    if ctx.graph_edges_path.exists() and ctx.graph_nodes_path.exists() and not is_family_excluded(ctx, "nace_text"):
-        for etype, idx_map, vecs_l, lbl in [("nace_4d", ctx.idx_07, v07, "4d"),
-                                             ("nace_3d", ctx.idx_3d, v3d, "3d"),
-                                             ("nace_2d", ctx.idx_2d, v2d, "2d"),
-                                             ("nace_sec", ctx.idx_sec, vsec, "section")]:
-            sub = ctx.graph_edges_df[ctx.graph_edges_df["type"] == etype]
-            pairs = [(ctx.node_lookup.get(int(r.src)), ctx.node_lookup.get(int(r.dst)), float(r.weight))
-                     for r in sub.itertuples()]
-            res = _row_kl_from_pairs(idx_map, vecs_l, pairs, tau, symmetric=True)
-            if res:
-                out[f"K_nace_KL_{lbl}"] = round(res["KL"], 4)
-
-    if ctx.io_path.exists() and not is_family_excluded(ctx, "io"):
+    if ctx.io_path.exists():
         pairs = [(str(r.nace2d_from).zfill(2), str(r.nace2d_to).zfill(2), float(r.sim))
                  for r in ctx.io_df.itertuples()]
         res = _row_kl_from_pairs(ctx.idx_2d, v2d, pairs, tau, symmetric=True)
@@ -714,31 +481,13 @@ def kl_source_metrics(
     if res:
         out["K_concordance_KL_92to02"] = round(res["KL"], 4)
 
-    # Same regime guard as J2_target_fidelity_rho.
-    if ctx.diffusion_path.exists() and ctx.training_regime not in _SKIP_J2_REGIMES:
-        dm_vecs, dm_valid = _align_to_diffusion_matrix(ctx, v07, v02, v92, ctx.dm_codes, ctx.dm_versions)
-        S_pos = np.clip(ctx.S, 0.0, None).astype(np.float64)
-        np.fill_diagonal(S_pos, 0.0)
-        row_sums = S_pos.sum(axis=1)
-        active = (row_sums > 0) & dm_valid
-        n_active = int(active.sum())
-        if n_active >= 10:
-            P_fused = S_pos[active] / row_sums[active, None]
-            sim = (dm_vecs @ dm_vecs.T).astype(np.float64)
-            np.fill_diagonal(sim, -np.inf)
-            Q_fused = _softmax_rows(sim, tau)[active]
-            kl_rows = _row_kl(P_fused, Q_fused)
-            out["K_fused_target_KL"] = round(float(kl_rows.mean()), 4)
-            out["K_fused_target_n_anchors"] = n_active
-
     return out
 
 
 # ── Helper: compute all scalar metrics for any set of embeddings ──────────────
 # Reads its fixed inputs (codes_*, idx_*, true_targets*, section_map_07,
-# labor_path/ownership_path + their loaded _dfs,
-# graph_edges_df/node_lookup, io_df, S/S_neg/dm_codes/dm_versions,
-# training_regime) off `ctx` — safe to call on ANY (v07, v02, v92, v3d, v2d,
+# labor_path/ownership_path/io_path + their loaded _dfs) off `ctx` — safe to
+# call on ANY (v07, v02, v92, v3d, v2d,
 # vsec) bundle sharing the same code universe as ctx. `rng` defaults to a
 # freshly-seeded random.Random(SEED) — see this module's docstring for why
 # each call site should pass its own fresh one rather than share one across
@@ -803,7 +552,7 @@ def compute_key_metrics(
              B2_R1_92to02=round(float(np.mean(_r1_2)), 4))
 
     # E: labor rho
-    if ctx.labor_path.exists() and not is_family_excluded(ctx, "labor"):
+    if ctx.labor_path.exists():
         _ldf = ctx.labor_df
         for coding, v_, idx_, lbl in [("SNI07", v07, ctx.idx_07, "07"),
                                        ("SNI02", v02, ctx.idx_02, "02"),
@@ -820,7 +569,7 @@ def compute_key_metrics(
                 m[f"E_labor_rho_{lbl}"] = round(float(rho_), 4)
 
     # E2: ownership rho
-    if ctx.ownership_path.exists() and not is_family_excluded(ctx, "ownership"):
+    if ctx.ownership_path.exists():
         _odf = ctx.ownership_df
         for coding, v_, idx_, lbl in [("SNI07", v07, ctx.idx_07, "07"),
                                        ("SNI02", v02, ctx.idx_02, "02"),
@@ -844,18 +593,10 @@ def compute_key_metrics(
         m["F_section_silhouette"] = round(float(
             silhouette_score(v07[_km], [s for s, m_ in zip(_sl, _km) if m_], metric="cosine")), 4)
 
-    # H: NACE relation consistency
-    if ctx.graph_edges_path.exists() and ctx.graph_nodes_path.exists() and not is_family_excluded(ctx, "nace_text"):
-        m.update(nace_consistency_metrics(ctx, v07, v3d, v2d, vsec, ctx.graph_edges_df, ctx.node_lookup))
-
     # I: IO relation consistency
-    if ctx.io_path.exists() and not is_family_excluded(ctx, "io"):
+    if ctx.io_path.exists():
         m.update(io_consistency_metric(ctx, v2d, ctx.io_df))
         m.update(aggregate_up_io_metric(v07, ctx.codes_07, ctx.io_df))
-
-    # J: repulsion consistency & training-target fidelity
-    if ctx.diffusion_path.exists():
-        m.update(repulsion_and_fidelity_metrics(ctx, v07, v02, v92, ctx.S, ctx.S_neg, ctx.dm_codes, ctx.dm_versions))
 
     # K: source-wise KL(P^(s) || Q)
     m.update(kl_source_metrics(ctx, v07, v02, v92, v3d, v2d, vsec, tau))

@@ -10,8 +10,10 @@ def symmetric_flow_phi(
       phi(i,j) = (f(i->j) + f(j->i)) / (out(i) + in(j) + out(j) + in(i))
 
     where f(i->j) is the flow value from i to j, out(i) is the total outflow
-    from i, and in(j) is the total inflow to j. Used for worker-transition
-    counts (labor relatedness) and IO flow values (IO relatedness) alike.
+    from i, and in(j) is the total inflow to j. Used for ownership
+    co-occurrence counts (build_ownership_relatedness.py) and IO flow values
+    (build_input_output_relatedness.py). Labor relatedness uses an
+    observed/expected ratio instead (build_labor_relatedness.py).
 
     Parameters
     ----------

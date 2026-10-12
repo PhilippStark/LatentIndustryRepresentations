@@ -1,79 +1,84 @@
 # shared_cosine_v16 — main paper run
 
-This is the current main/production embedding run for the project. The name
-deliberately carries no parameter details (unlike its predecessor,
-`shared_cosine_v15_textprior_pca_no_nace_trade_innovation`) — this file is
-the authoritative record of what it actually is.
+The embedding all paper results are based on (`data/embedding/shared_cosine_v16/`).
+Every script's defaults are this run's settings.
 
-Promoted to main on 2026-08-31, superseding `shared_cosine_v15_textprior_pca_
-no_nace_trade_innovation` (moved to `DataLatentIndustryRepresentations/
-ablations/embedding/` as a preserved comparison baseline, same name, still
-runnable/queryable there).
+## Graph (`layers_v1`)
 
-## Graph
+```
+python scripts/data/build_labor_relatedness.py          # --min-labor-count 10 (default)
+python scripts/data/build_ownership_relatedness.py
+python scripts/data/build_input_output_relatedness.py
+python scripts/graph/build_layer_transition_matrices.py --name layers_v1
+python scripts/graph/build_layer_diffusion_targets.py --name layers_v1
+```
 
-- `--name layers_v1` (`build_layer_transition_matrices.py`), same node
-  universe as v14/v15 (2,614 nodes).
-- **Labor edge threshold raised 3 → 10**: `build_labor_relatedness.py
-  --min-labor-count 10` (previously hardcoded at 3, no CLI flag — the flag
-  was added for this change). A labor pair now needs ≥10 pooled worker
-  movers (both directions, full period) to be kept at all, versus ≥3
-  before. Kept pairs: SNI92 39,291 / SNI02 24,168 / SNI07 51,977.
-- **trade/innovation evidence families removed from the codebase entirely**
-  (2026-08-31) — not just excluded via zero lambda as in v15, but deleted:
-  `build_trade_layer`/`build_innovation_layer` and their CLI flags no
-  longer exist. They contributed exactly zero training gradient in v15
-  anyway (`--lambda-trade 0.0 --lambda-innovation 0.0`), so removing them
-  changes nothing about what was actually trained.
+- 2,614 nodes: 4-digit codes of SNI92/SNI02/SNI07 and their 3-digit, 2-digit
+  and section hubs.
+- A labor pair needs at least 10 pooled job movers (both directions, whole
+  period). Kept pairs: SNI92 39,291 / SNI02 24,168 / SNI07 51,977.
 
-## Diffusion scales (`build_layer_diffusion_targets.py --expanded`)
+## Diffusion targets (17)
 
-| family | scales (t) | note |
+| view | scales (t) | targets |
 |---|---|---|
-| labor | 1, 2, 4 | widened from v15's t=1 only (9 targets: 3 versions × 3 scales) |
-| hierarchy | 1, 2, 4 | widened from v15's t=(1,4) |
-| nace_text | 1, 2, 4 | zero training weight (see lambdas below) — scale choice is moot |
-| ownership | 1, 4 | unchanged production default (`EXPANDED_DEFAULT_SCALES`) |
-| io | 1 | hard-pinned (`IO_NATIVE_SCALES`) — native 2d-hub layer, not overridable |
-| transition | 1 | hard-pinned (`TRANSITION_PAIR_SCALES`) — direct correspondence, not overridable |
+| labor | 1, 2, 4 | 9 (split by SNI version) |
+| hierarchy | 1, 2, 4 | 3 (t = 1 is the ordinal 4-digit tier target) |
+| ownership | 1, 4 | 2 |
+| io | 1 | 1 (native 2-digit layer) |
+| transition | 1 | 2 (SNI92↔SNI02, SNI02↔SNI07) |
 
-## Training (`train_shared_cosine_embedding.py`)
+## Training
 
 ```
---name layers_v1 --run-name shared_cosine_v16 \
---text-prior-init --text-prior-pca --embedding-dim 64 \
---lambda-hierarchy 0.10 --lambda-transition 0.10 --lambda-labor 0.30 \
---lambda-io 0.25 --lambda-nace_text 0.0 --lambda-ownership 0.125 \
---dynamic-reweight --reweight-stall-ratio 2.0 --saturation-frac 0.2 \
---eval-every 25 --epochs 500 --seed 42 --log-every 100
+python scripts/training/train_shared_cosine_embedding.py --name layers_v1 --run-name shared_cosine_v16
 ```
 
-- Z warm-started from each node's own NACE text description
-  (`sentence-transformers/all-MiniLM-L6-v2`, 384d → PCA to 64d) instead of
-  random noise — no ongoing anchor loss ties Z back to this afterward.
-- `--lambda-ownership 0.125` is explicit here.
+which is, spelled out:
+
+```
+--embedding-dim 64 --text-prior-model sentence-transformers/all-MiniLM-L6-v2 \
+--lambda-labor 0.30 --lambda-io 0.25 --lambda-hierarchy 0.10 \
+--lambda-transition 0.10 --lambda-ownership 0.125 \
+--saturation-frac 0.2 --reweight-stall-ratio 2.0 --reweight-max-ratio 20 \
+--reweight-decay 0.9 --reweight-stall-min-improvement 0.1 \
+--lr 0.01 --epochs 500 --seed 42 --eval-every 25 --log-every 100
+```
+
+- Z starts from each node's SCB description encoded with all-MiniLM-L6-v2
+  (384-d), reduced to 64-d by PCA (76.6% of variance) and re-normalised. No
+  loss term ties Z to this start afterwards.
+- A view's weight is divided among its targets in proportion to the inverse
+  of each target's null loss. With these weights hierarchy_t2 and
+  hierarchy_t4 receive about 0.0006 each; hierarchy acts almost entirely
+  through the ordinal target hierarchy_t1.
+- Each target has a learnable temperature τ bounded to [e^-1, e].
+- Single seed (42).
+
+## Reproducibility
+
+Trained on CPU (LUNARC, lu48 partition), seed 42. Training is deterministic on
+a given machine but not bitwise across machines: small floating-point
+differences grow over 500 epochs. A retrain on other hardware changes the P02
+evaluation metrics by at most 0.012 (SNI02→SNI07 R@1), most by less than
+0.005. The paper's results use the released embeddings.
+
+## Evaluation
+
+```
+python scripts/evaluation/P01_source_complementarity.py
+python scripts/evaluation/P02_shared_geometry_reconstruction.py --run-name shared_cosine_v16
+python scripts/evaluation/P03_emergent_structure.py --run-name shared_cosine_v16
+python scripts/evaluation/build_paper_tables.py --run-name shared_cosine_v16
+```
+
+P02's baseline is the untrained all-MiniLM-L6-v2 encoding (384-d), i.e. the
+text prior before the PCA to 64-d. R01's "baseline" density is the 64-d PCA
+text prior Z actually started from.
 
 ## Regional evaluation
 
-Core analysis only: `P04_entry.py`, `P04_exit.py`, `P04_startup_entry.py`
-(`--density-var ew --log-employment-weights`, both already each script's
-default). Growth/wage-growth are appendix-only and not part of this run's
-primary results.
-
-## Provenance
-
-- Built as `shared_cosine_v16` on 2026-08-31; its embedding,
-  evaluation, and regional-outcome artifacts were moved from
-  `DataLatentIndustryRepresentations/ablations/` into the main
-  `DataLatentIndustryRepresentations/` tree and `results/` under the new
-  name at that point.
-- Note for reproducibility: during this same job, a dangling-symlink bug in
-  an earlier draft of the ablation script caused production's `layers_v1`
-  graph files (`labor_relatedness.parquet`, `layers_layers_v1.npz`,
-  `graph_edges/nodes/negative_edges_layers_v1.parquet`) to be silently
-  overwritten in place with this run's threshold=10 build — i.e. this is
-  also why production no longer has a threshold=3 copy of these files
-  on disk. The original threshold=3 build is still fully reproducible
-  (`build_labor_relatedness.py` with no `--min-labor-count` flag, default
-  3, followed by `build_layer_transition_matrices.py`) if ever needed for
-  comparison.
+`P04_entry.py`, `P04_exit.py`, `P04_startup_entry.py` (log-employment-weighted
+density, each script's default), `P05_opportunity_space.py`,
+`R01_single_source_density.py` and `R02_fixed_effects_robustness.py`. Growth
+and wage growth are appendix-only.

@@ -1,17 +1,11 @@
 """
-operator_diagnostics.py — training-state checkpoint and reconstruction diagnostics.
+operator_diagnostics.py — reference metrics tracked during training.
 
-- save_training_state / load_training_state: Z plus every target's
-  observation model (operator_state.pt in the run directory).
-- layer_reconstruction_report: per-row Spearman rho, cosine similarity and
-  top-k overlap between each target and the model's predicted distribution.
-- per_family_reference_metric: one cheap reference metric per family,
-  computed from Z and the relatedness files (Spearman rho against labor /
-  IO relatedness, hierarchy tree-distance rho, or crosswalk MRR for
-  transition); used during training with --eval-every.
+per_family_reference_metric gives one cheap reference metric per family,
+computed from Z and the relatedness files (Spearman rho against labor / IO
+relatedness, hierarchy tree-distance rho, or crosswalk MRR for transition);
+used during training with --eval-every.
 """
-
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -19,108 +13,10 @@ import torch
 import torch.nn.functional as F
 from scipy.stats import spearmanr
 
-from latent_industry.common.paths import METADATA_DIR, PROCESSED_DATA_DIR
+from latent_industry.common.paths import PROCESSED_DATA_DIR
 from latent_industry.graph.layer_diffusion import build_hierarchy_ordinal_tiers
 from latent_industry.graph.layers import CROSSWALK_CSVS, _crosswalk_pairs
 from latent_industry.graph.nodes import NodeIndex
-from latent_industry.training.operator_losses import layer_loss
-from latent_industry.training.operator_observation_models import OBSERVATION_MODEL_REGISTRY, LayerObservationModel
-from latent_industry.training.operator_trainer import restrict_to_domain
-
-DEFAULT_TOP_KS = (5, 10, 20)
-
-_KIND_BY_CLASS = {cls: kind for kind, cls in OBSERVATION_MODEL_REGISTRY.items()}
-
-
-def save_training_state(Z: torch.Tensor, observation_models: dict[str, LayerObservationModel],
-                         embedding_dim: int, out_path: Path) -> None:
-    """
-    Checkpoint of Z and every target's observation model (operator_state.pt).
-    Not part of the exported embeddings.
-    """
-    state = {
-        "embedding_dim": embedding_dim,
-        "Z": Z.detach().cpu(),
-        "model_kinds": {lname: _KIND_BY_CLASS[type(model)] for lname, model in observation_models.items()},
-        "model_state_dicts": {
-            lname: {k: v.detach().cpu() for k, v in model.state_dict().items()}
-            for lname, model in observation_models.items()
-        },
-    }
-    torch.save(state, out_path)
-
-
-def load_training_state(path: Path) -> tuple[torch.Tensor, dict[str, LayerObservationModel]]:
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found — train_operator_embedding.py saves this alongside the exported "
-            f"embeddings; re-run it if this is an older run predating operator_state.pt."
-        )
-    state = torch.load(path, map_location="cpu", weights_only=True)
-    dim = state["embedding_dim"]
-    Z = state["Z"]
-    observation_models = {}
-    for lname, kind in state["model_kinds"].items():
-        model = OBSERVATION_MODEL_REGISTRY[kind](dim)
-        model.load_state_dict(state["model_state_dicts"][lname])
-        observation_models[lname] = model
-    return Z, observation_models
-
-
-def _row_reconstruction_metrics(P: np.ndarray, Q: np.ndarray, top_ks: tuple[int, ...]) -> dict[str, np.ndarray]:
-    """P, Q: (n_active, n_domain) — true target rows and predicted (softmax)
-    rows, same active subset, same domain-restricted/diagonal-excluded
-    shape `restrict_to_domain` produces. Per active row: Spearman rho,
-    cosine similarity, and top-k neighbour overlap (fraction of the true
-    top-k destinations also in the predicted top-k)."""
-    n = P.shape[0]
-    row_spearman = np.full(n, np.nan)
-    row_cosine = np.zeros(n)
-    row_topk = {k: np.zeros(n) for k in top_ks}
-
-    for i in range(n):
-        p, q = P[i], Q[i]
-        if np.ptp(p) > 1e-12 and np.ptp(q) > 1e-12:
-            row_spearman[i] = spearmanr(p, q).statistic
-
-        denom = np.linalg.norm(p) * np.linalg.norm(q)
-        row_cosine[i] = float(p @ q / denom) if denom > 0 else 0.0
-
-        for k in top_ks:
-            k_eff = min(k, p.shape[0])
-            true_top = set(np.argpartition(-p, k_eff - 1)[:k_eff].tolist())
-            pred_top = set(np.argpartition(-q, k_eff - 1)[:k_eff].tolist())
-            row_topk[k][i] = len(true_top & pred_top) / k_eff
-
-    return {"row_spearman": row_spearman, "row_cosine": row_cosine, "row_topk_overlap": row_topk}
-
-
-def layer_reconstruction_report(
-    lname: str, Z: torch.Tensor, model: torch.nn.Module, domain_mask: torch.Tensor,
-    target: torch.Tensor, active_mask: torch.Tensor, loss_kind: str,
-    top_ks: tuple[int, ...] = DEFAULT_TOP_KS,
-) -> dict:
-    """`target`/`active_mask` must already be domain-restricted (see
-    operator_trainer.restrict_to_domain) — same shape/normalisation the
-    layer was actually trained against, not a second reimplementation."""
-    with torch.no_grad():
-        logits = model(Z, domain_mask)
-        Q = torch.softmax(logits, dim=-1)
-        scalar_loss = layer_loss(loss_kind, logits, target, active_mask).item()
-
-        P_np = target[active_mask].cpu().numpy()
-        Q_np = Q[active_mask].cpu().numpy()
-
-    row_metrics = _row_reconstruction_metrics(P_np, Q_np, top_ks)
-
-    return {
-        "layer": lname,
-        "loss_kind": loss_kind,
-        "n_domain": int(domain_mask.sum()),
-        "n_active": int(P_np.shape[0]),
-        "scalar_loss": scalar_loss,
-        **row_metrics,
-    }
 
 
 # ── Per-family loss <-> reference-metric correlation ──────────────────────
@@ -193,7 +89,7 @@ def _io_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
 def _hierarchy_reference_metric(Z: torch.Tensor, ni: NodeIndex) -> float | None:
     """
     Spearman rho between cosine distance and hierarchy tree distance from
-    code-prefix tiers; used for both the "hierarchy" and "nace_text" families.
+    code-prefix tiers.
     """
     tier, domain = build_hierarchy_ordinal_tiers(ni)
     idx = np.nonzero(domain)[0]
@@ -255,7 +151,7 @@ def per_family_reference_metric(Z: torch.Tensor, ni: NodeIndex, family: str) -> 
         return _labor_reference_metric(Z, ni)
     if family == "io":
         return _io_reference_metric(Z, ni)
-    if family in ("hierarchy", "nace_text"):
+    if family == "hierarchy":
         return _hierarchy_reference_metric(Z, ni)
     if family == "transition":
         return _transition_reference_metric(Z, ni)

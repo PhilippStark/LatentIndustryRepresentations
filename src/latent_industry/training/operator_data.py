@@ -14,16 +14,25 @@ from latent_industry.graph import artifacts
 from latent_industry.training.operator_losses import layer_loss
 
 # Likelihood per family: all are categorical (kl/ce share one optimum, see
-# operator_losses.py); io can alternatively use mse (--io-loss).
+# operator_losses.py). hierarchy_t1 is overridden to "ordinal"
+# (DEFAULT_LOSS_TYPE_OVERRIDES).
 DEFAULT_LOSS_TYPES = {
     "labor": "kl",
-    "nace_text": "kl",
     "io": "kl",
     "hierarchy": "ce",
     "transition": "ce",
     "ownership": "kl",
 }
-DEFAULT_LAMBDAS = {lname: 1.0 / len(DEFAULT_LOSS_TYPES) for lname in DEFAULT_LOSS_TYPES}
+DEFAULT_LOSS_TYPE_OVERRIDES = {"hierarchy_t1": "ordinal"}
+
+# Family weights of the main run (shared_cosine_v16).
+DEFAULT_LAMBDAS = {
+    "labor": 0.30,
+    "io": 0.25,
+    "hierarchy": 0.10,
+    "transition": 0.10,
+    "ownership": 0.125,
+}
 
 
 @dataclass
@@ -31,7 +40,7 @@ class OperatorData:
     targets: dict[str, torch.Tensor]        # layer -> P_tilde, N x N
     domains: dict[str, torch.Tensor]         # layer -> N, bool
     active_masks: dict[str, torch.Tensor]    # layer -> N, bool, active <= domain
-    loss_types: dict[str, str]               # layer -> "kl" | "ce" | "mse"
+    loss_types: dict[str, str]               # layer -> "kl" | "ce" | "ordinal"
     weights: dict[str, float]                # layer -> lambda_l
     margins: dict[str, float] = field(default_factory=dict)  # layer -> saturation floor (default 0, no-op)
     families: dict[str, str] = field(default_factory=dict)   # target_id -> family, {} if unused
@@ -97,7 +106,7 @@ def load_operator_data_expanded(
     name: str,
     loss_types_by_family: dict[str, str] | None = None,
     family_weights: dict[str, float] | None = None,
-    saturation_frac: float = 0.0,
+    saturation_frac: float = 0.2,
     device: str = "cpu",
     loss_type_overrides: dict[str, str] | None = None,
 ) -> OperatorData:
@@ -115,12 +124,13 @@ def load_operator_data_expanded(
     so each family receives exactly its assigned weight regardless of how many
     scales it has or how different their null losses are.
 
-    saturation_frac (default 0 = off): margins[t] = saturation_frac *
+    saturation_frac (main run: 0.2; 0 = off): margins[t] = saturation_frac *
     null_loss[t]; operator_trainer.train_joint subtracts this floor (clamped at
     0), so a target below the floor stops contributing gradient.
 
     loss_type_overrides: per-target loss kinds applied after the per-family
-    loss types (e.g. hierarchy_t1 = "ordinal" while hierarchy_t4 stays "ce").
+    loss types (default DEFAULT_LOSS_TYPE_OVERRIDES: hierarchy_t1 = "ordinal"
+    while hierarchy_t2/t4 stay "ce").
 
     The returned OperatorData.families maps target_id → family, used to group
     per-epoch losses by family (train_shared_cosine_embedding.py --eval-every).
@@ -128,12 +138,11 @@ def load_operator_data_expanded(
     targets_np, domains_np, families = artifacts.load_layer_diffusion_targets_expanded(name)
     active_np = {t: (targets_np[t].sum(axis=1) > 0) for t in targets_np}
 
-    family_names = sorted(set(families.values()))
     loss_types_by_family = (dict(loss_types_by_family) if loss_types_by_family is not None
                              else dict(DEFAULT_LOSS_TYPES))
-    family_weights = (dict(family_weights) if family_weights is not None
-                       else {f: 1.0 / len(family_names) for f in family_names})
-    loss_type_overrides = dict(loss_type_overrides) if loss_type_overrides is not None else {}
+    family_weights = dict(family_weights) if family_weights is not None else dict(DEFAULT_LAMBDAS)
+    loss_type_overrides = (dict(loss_type_overrides) if loss_type_overrides is not None
+                           else dict(DEFAULT_LOSS_TYPE_OVERRIDES))
 
     loss_types = {t: loss_type_overrides.get(t, loss_types_by_family[families[t]]) for t in targets_np}
 

@@ -181,8 +181,3 @@ def estimate_by_period(panel: pd.DataFrame, outcome: str, density_col: str = "de
                   f"p={res['pval']:.1e}  N={res['n']:,}  base rate={res['rate']:.4%}  "
                   f"({res['pct_of_baseline']:+.1f}% of base rate)")
     return results, pd.concat(frames, ignore_index=True)
-
-
-def format_p(p: float) -> str:
-    """p-value for reporting: values below 0.001 are given as '<0.001'."""
-    return "<0.001" if p < 0.001 else f"{p:.3f}"

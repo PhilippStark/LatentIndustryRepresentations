@@ -131,22 +131,22 @@ def train_joint(
     lr: float,
     epochs: int,
     log_every: int = 20,
-    dynamic_reweight: bool = False,
+    dynamic_reweight: bool = True,
     reweight_decay: float = 0.9,
     reweight_max_ratio: float = 20.0,
-    reweight_stall_ratio: float = 5.0,
+    reweight_stall_ratio: float = 2.0,
     reweight_stall_min_improvement: float = 0.1,
     hub_aggregation: torch.Tensor | None = None,
     on_epoch: Callable[[int, torch.Tensor, dict[str, float]], None] | None = None,
-) -> float:
+) -> None:
     """
-    Full-batch joint training loop; returns the lowest total loss observed.
+    Full-batch joint training loop; updates Z and the observation models in place.
 
     Options
     -------
     dynamic_reweight
-        Rescale each target's weight by running_loss(epoch 1) /
-        running_loss(epoch) (EMA, clamped to reweight_max_ratio), so that every
+        Rescale each target's weight by loss(epoch 1) / running_loss(epoch)
+        (running_loss an EMA, the ratio clamped to reweight_max_ratio), so that every
         target's contribution stays near its initial share instead of fading as
         it is fitted. Used together with the margins in operator_data.margins,
         which switch a target off once it falls below its floor.
@@ -174,7 +174,6 @@ def train_joint(
     print(f"\nTraining {epochs} epochs …")
     if dynamic_reweight:
         print(f"  dynamic_reweight=True (decay={reweight_decay}, max_ratio={reweight_max_ratio})")
-    best_loss = float("inf")
     running_loss: dict[str, float] = {}
     running_loss_epoch1: dict[str, float] = {}
     stall_baseline: dict[str, float] = {}
@@ -230,9 +229,6 @@ def train_joint(
         total_loss.backward()
         optimizer.step()
 
-        if total_loss.item() < best_loss:
-            best_loss = total_loss.item()
-
         if epoch % log_every == 0 or epoch == 1 or epoch == epochs:
             print(f"  epoch {epoch:4d}/{epochs}  total={total_loss.item():.5f}")
             for lname, l in per_layer_losses.items():
@@ -243,5 +239,3 @@ def train_joint(
 
         if on_epoch is not None:
             on_epoch(epoch, Z_eff.detach(), {lname: l.item() for lname, l in per_layer_losses.items()})
-
-    return best_loss

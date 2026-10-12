@@ -21,7 +21,6 @@ Outputs (<LATENT_DATA_ROOT>/processed/)
 ---------------------------------------
   ownership_relatedness.parquet    sni_from, sni_to, phi, coding (one row per
                                    unordered pair and period, sni_from < sni_to)
-  ownership_flows_by_year.parquet  coding, year, sni_from, sni_to, count
 
 Usage
 -----
@@ -54,17 +53,12 @@ parser.add_argument("--max-year", type=int, default=2019,
                      help="Last register year allowed.")
 parser.add_argument("--output-file", default="ownership_relatedness.parquet",
                      help="Absolute path or filename under PROCESSED_DATA_DIR.")
-parser.add_argument("--flows-by-year-file", default="ownership_flows_by_year.parquet",
-                     help="Absolute path or filename under PROCESSED_DATA_DIR.")
 args, _ = parser.parse_known_args()
 if args.max_year < 1991:
     raise ValueError("--max-year must permit at least one within-regime year")
 output_path = Path(args.output_file)
 if not output_path.is_absolute():
     output_path = PROCESSED_DATA_DIR / output_path
-flows_by_year_path = Path(args.flows_by_year_file)
-if not flows_by_year_path.is_absolute():
-    flows_by_year_path = PROCESSED_DATA_DIR / flows_by_year_path
 
 # Minimum pooled (within-version) co-occurrence count for a pair to be kept —
 # same role as MIN_LABOR_COUNT in build_labor_relatedness.py: an evidence
@@ -141,8 +135,6 @@ for year in sorted(YEAR_TO_REGIME):
 flows_by_year = pd.concat(year_frames, ignore_index=True) if year_frames else pd.DataFrame(
     columns=["coding", "year", "sni_from", "sni_to", "count"]
 )
-flows_by_year.to_parquet(flows_by_year_path, index=False)
-print(f"\nSaved year-tagged co-occurrence ({len(flows_by_year):,} rows) → {flows_by_year_path}")
 
 print("\nPooling within each classification period and computing phi …")
 phi_frames = []
@@ -189,7 +181,6 @@ metadata_path.write_text(
             "max_codes_per_org": MAX_CODES_PER_ORG,
             "rows": len(result),
             "output": str(output_path),
-            "flows_by_year": str(flows_by_year_path),
         },
         indent=2,
     ),

@@ -1,20 +1,16 @@
 {
   "run_name": "shared_cosine_v16",
   "graph_name": "layers_v1",
-  "regime": "shared_cosine_expanded",
   "embedding_dim": 64,
   "seed": 42,
   "learning_rate": 0.01,
   "epochs": 500,
   "loss_types_by_family": {
     "labor": "kl",
-    "nace_text": "kl",
     "io": "kl",
     "hierarchy": "ce",
     "transition": "ce",
-    "ownership": "kl",
-    "trade": "kl",
-    "innovation": "kl"
+    "ownership": "kl"
   },
   "loss_type_overrides": {
     "hierarchy_t1": "ordinal"
@@ -23,8 +19,6 @@
     "hierarchy_t1": "ordinal",
     "hierarchy_t2": "ce",
     "hierarchy_t4": "ce",
-    "innovation_t1": "kl",
-    "innovation_t4": "kl",
     "io_t1": "kl",
     "labor_SNI02_t1": "kl",
     "labor_SNI02_t2": "kl",
@@ -35,32 +29,22 @@
     "labor_SNI92_t1": "kl",
     "labor_SNI92_t2": "kl",
     "labor_SNI92_t4": "kl",
-    "nace_text_t1": "kl",
-    "nace_text_t2": "kl",
-    "nace_text_t4": "kl",
     "ownership_t1": "kl",
     "ownership_t4": "kl",
-    "trade_t1": "kl",
-    "trade_t4": "kl",
     "transition_SNI02_SNI07_t1": "ce",
     "transition_SNI92_SNI02_t1": "ce"
   },
   "family_weights": {
     "labor": 0.3,
-    "nace_text": 0.0,
     "io": 0.25,
     "hierarchy": 0.1,
     "transition": 0.1,
-    "ownership": 0.125,
-    "trade": 0.0,
-    "innovation": 0.0
+    "ownership": 0.125
   },
   "per_target_weights": {
     "hierarchy_t1": 0.09876114251090828,
     "hierarchy_t2": 0.0006194287445458561,
     "hierarchy_t4": 0.0006194287445458561,
-    "innovation_t1": 0.0,
-    "innovation_t4": 0.0,
     "io_t1": 0.25,
     "labor_SNI02_t1": 0.008351465944778992,
     "labor_SNI02_t2": 0.022869789494310316,
@@ -71,20 +55,14 @@
     "labor_SNI92_t1": 0.009721488067484026,
     "labor_SNI92_t2": 0.028596258306732278,
     "labor_SNI92_t4": 0.06601593040950866,
-    "nace_text_t1": 0.0,
-    "nace_text_t2": 0.0,
-    "nace_text_t4": 0.0,
     "ownership_t1": 0.040659646748648005,
     "ownership_t4": 0.084340353251352,
-    "trade_t1": 0.0,
-    "trade_t4": 0.0,
     "transition_SNI02_SNI07_t1": 0.04963234240044495,
     "transition_SNI92_SNI02_t1": 0.050367657599555055
   },
   "observation_model": "cosine",
   "hub_aggregation": true,
   "eval_every": 25,
-  "text_prior_init": true,
   "text_prior_model": "sentence-transformers/all-MiniLM-L6-v2",
   "text_prior_pca": true,
   "saturation_frac": 0.2,
@@ -92,8 +70,6 @@
     "hierarchy_t1": 0.00986992046236992,
     "hierarchy_t2": 1.5736509323120118,
     "hierarchy_t4": 1.5736509323120118,
-    "innovation_t1": 1.2345872879028321,
-    "innovation_t4": 0.677262830734253,
     "io_t1": 0.2617992401123047,
     "labor_SNI02_t1": 0.6293458461761475,
     "labor_SNI02_t2": 0.22982110977172854,
@@ -104,13 +80,8 @@
     "labor_SNI92_t1": 0.5406538963317872,
     "labor_SNI92_t2": 0.183798885345459,
     "labor_SNI92_t4": 0.07961654663085938,
-    "nace_text_t1": 0.2,
-    "nace_text_t2": 0.2,
-    "nace_text_t4": 0.2,
     "ownership_t1": 1.0977148056030275,
     "ownership_t4": 0.5291974067687989,
-    "trade_t1": 0.47002215385437013,
-    "trade_t4": 0.37748160362243655,
     "transition_SNI02_SNI07_t1": 1.4056401252746582,
     "transition_SNI92_SNI02_t1": 1.3851192474365235
   },
@@ -118,6 +89,5 @@
   "reweight_decay": 0.9,
   "reweight_max_ratio": 20.0,
   "reweight_stall_ratio": 2.0,
-  "reweight_stall_min_improvement": 0.1,
-  "best_loss": Infinity
+  "reweight_stall_min_improvement": 0.1
 }

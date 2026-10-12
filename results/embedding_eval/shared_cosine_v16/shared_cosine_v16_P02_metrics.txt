@@ -36,11 +36,6 @@ E2. Ownership flow consistency  (cosine sim vs ownership co-occurrence phi)
   → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_E2_ownership_consistency.png
 
 ════════════════════════════════════════════════════════════
-E3. Innovation flow consistency  (cosine sim vs SWINNO producer/use phi)
-════════════════════════════════════════════════════════════
-  SKIPPED — innovation was excluded from training (lambda=0.0 in training_provenance.json).
-
-════════════════════════════════════════════════════════════
 F. Global structure — Section Silhouette (SNI07 4d)
 ════════════════════════════════════════════════════════════
   Codes:    615  |  Sections: 21
@@ -70,27 +65,12 @@ F. Global structure — Section Silhouette (SNI07 4d)
     U: 0.0000  (n=1)
 
 ════════════════════════════════════════════════════════════
-H. NACE relation consistency (nace_4d / nace_3d / nace_2d / nace_sec)
-════════════════════════════════════════════════════════════
-  SKIPPED — nace_text was excluded from training (lambda=0.0 in training_provenance.json).
-
-════════════════════════════════════════════════════════════
 I. IO relation consistency  (cosine sim vs blended IO relatedness)
 ════════════════════════════════════════════════════════════
   Pairs evaluated:        7,656
   Spearman rho (sim~io):  0.9110  (p=0.00e+00)
-  Spearman rho (aggregate-up sim~io):  0.6652  (v7 §4.3 — mean of 4d-4d cosines per division pair, not the hub's own cosine; should converge with I_io_rho under §1.2's hub aggregation)
+  Spearman rho (aggregate-up sim~io):  0.6652  (mean of 4d-4d cosines per division pair)
   → /home/ph0245st/Documents/LatentIndustryRepresentations/results/embedding_eval/shared_cosine_v16/shared_cosine_v16_I_io_consistency.png
-
-════════════════════════════════════════════════════════════
-I2. Trade relation consistency  (cosine sim vs foreign-trade-growth correlation)
-════════════════════════════════════════════════════════════
-  SKIPPED — trade was excluded from training (lambda=0.0 in training_provenance.json).
-
-════════════════════════════════════════════════════════════
-J. Repulsion consistency & training-target fidelity
-════════════════════════════════════════════════════════════
-  diffusion_matrix_layers_v1.npz not found — run build_diffusion_targets.py first.
 
 ════════════════════════════════════════════════════════════
 K. Source-wise KL evaluation  (tau=0.05)
@@ -110,7 +90,7 @@ G. Multi-signal summary
 ════════════════════════════════════════════════════════════
   Computing baseline metrics for comparison …
 
-  Metric                             Baseline  Fine-tuned         Δ
+  Metric                             Baseline     Trained         Δ
   --------------------------------  ---------  ----------  --------
   A_hierarchy_monotone                 1.0000      1.0000   +0.0000
   A_sim_diff_section                   0.1323      0.1405   +0.0082

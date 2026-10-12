@@ -20,22 +20,23 @@ export LATENT_DATA_ROOT="$(pwd)/data"   # see src/latent_industry/common/paths.p
 |---|---|
 | `embeddings_sni92.npz`, `embeddings_sni02.npz`, `embeddings_sni07.npz` | 64-d industry embeddings per classification version. Keys: `embeddings` (n × 64, float), `codes` (n, 4-digit SNI code). |
 | `embeddings_sni07_section.npz`, `embeddings_sni07_2d.npz`, `embeddings_sni07_3d.npz` | Embeddings of the SNI 2007 hierarchy nodes (21 sections, 88 2-digit and 272 3-digit codes). |
-| `operator_state.pt` | Trained model state (PyTorch). |
 | `training_provenance.json` | Full training configuration (loss types, weights, margins, seed). |
 | `hub_coherence.csv`, `loss_metric_correlation.csv` | Training diagnostics. |
+
+Training is deterministic on a given machine but not bitwise across
+machines; a retrain on other hardware differs slightly (evaluation metrics
+within ±0.012). The paper's results use the embeddings released here.
 
 ### Relational views — `processed/`
 
 | File | Content |
 |---|---|
-| `layers_layers_v1.npz` | Row-stochastic transition matrices of the relational views over the shared 2,614-node graph (4-digit codes of SNI92/02/07 plus hierarchy hubs). Per view `<v>`: `<v>__P` (2614 × 2614), `<v>__avail`, `<v>__domain`. Views: labor, nace_text, io, hierarchy, transition, ownership, trade, innovation (trade, innovation and nace_text carry zero training weight in v16). |
-| `layer_diffusion_expanded_layers_v1.npz` | The 24 multi-scale diffusion targets the v16 embedding was trained on (`<view>_t<scale>__P`, 2614 × 2614). Target list in `target_ids`. |
-| `graph_nodes_layers_v1.parquet`, `graph_edges_layers_v1.parquet`, `graph_negative_edges_layers_v1.parquet` | Node universe and edge lists of the multi-relational graph (`src`, `dst`, `weight`, `type`, `layer`, `split`). |
+| `layers_layers_v1.npz` | Row-stochastic transition matrices of the relational views over the shared 2,614-node graph (4-digit codes of SNI92/02/07 plus their 3-digit, 2-digit and section hubs; node order as in `src/latent_industry/graph/nodes.py`). Per view `<v>`: `<v>__P` (2614 × 2614) and `<v>__domain`. Views: labor, ownership, io, hierarchy, transition_SNI92_SNI02, transition_SNI02_SNI07. |
+| `layer_diffusion_expanded_layers_v1.npz` | The 17 multi-scale diffusion targets the v16 embedding is trained on (`<view>_t<scale>__P`, 2614 × 2614, with `__domain`; target list in `target_ids`, view of each target in `families_json`). |
 | `labor_relatedness.parquet` | Labor-flow relatedness between 4-digit industries (`sni_from`, `sni_to`, `phi`, `coding`). Industry pairs with fewer than 10 pooled job movers are excluded. |
 | `ownership_relatedness.parquet` (+ `.metadata.json`) | Ownership (corporate group) relatedness between 4-digit industries. |
 | `io_relatedness_SNI07.parquet` | Input–output relatedness between 2-digit NACE Rev. 2 industries (SCB and Eurostat tables). |
 | `io_relatedness_SNI02.parquet` | Input–output relatedness between 2-digit NACE Rev. 1.1 industries (WIOD tables). |
-| `nace_embeddings_openai.npz` | Text embeddings of the official NACE Rev. 2 descriptions, input to the `nace_text` view. |
 
 ### Evaluation datasets — `processed/downstream_outcomes/`
 

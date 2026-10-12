@@ -64,6 +64,7 @@ sys.path.insert(0, str(project_root / "src"))
 from latent_industry.common.paths import EMBEDDING_DIR, PROCESSED_DATA_DIR, RAW_DATA_DIR, METADATA_DIR, LUNARC_DATA_ROOT
 from latent_industry.common.municipalities import harmonization_table, load_municipality_crosswalk
 from latent_industry.common.sni_codes import SNI_2digits_to_sections
+from latent_industry.graph.nodes import NodeIndex
 from latent_industry.regional.fixed_effects import SPECS, density_effect, fit
 from latent_industry.regional.density import (
     load_sni_embeddings, employment_weighted_density, cosine_matrix, empl_matrix as _shared_empl_matrix,
@@ -263,36 +264,6 @@ CODES = {"SNI92": _sni_emb["sni92"][1], "SNI02": _sni_emb["sni02"][1], "SNI07": 
 #    ownership already).
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _pairwise_lookup_source(parquet_path: Path, from_col: str, to_col: str, val_col: str,
-                             coding_col: str | None, versions: list[str]) -> dict[str, np.ndarray]:
-    """Shared builder for labor/ownership (coding_col="coding", per-version rows)."""
-    if not parquet_path.exists():
-        print(f"  SKIPPED — {parquet_path} not found.")
-        return {}
-    df = pd.read_parquet(parquet_path)
-    out: dict[str, np.ndarray] = {}
-    for ver in versions:
-        sub = df[df[coding_col] == ver] if coding_col else df
-        codes = CODES[ver]
-        pos = {c: i for i, c in enumerate(codes)}
-        n = len(codes)
-        M = np.zeros((n, n), dtype=np.float64)
-        hits = 0
-        for row in sub.itertuples(index=False):
-            a, b = str(getattr(row, from_col)), str(getattr(row, to_col))
-            ia, ib = pos.get(a), pos.get(b)
-            if ia is None or ib is None:
-                continue
-            v = float(getattr(row, val_col))
-            M[ia, ib] = v
-            M[ib, ia] = v
-            hits += 1
-        np.fill_diagonal(M, 0.0)
-        out[ver] = M
-        print(f"    {ver}: {hits:,} pairs matched onto {n} codes")
-    return out
-
-
 def build_training_input_source(view: str) -> dict[str, np.ndarray]:
     """The view's transition matrix exactly as the embedding was trained on it
     (layers_{graph}.npz, built by build_layer_transition_matrices.py): raw
@@ -302,14 +273,12 @@ def build_training_input_source(view: str) -> dict[str, np.ndarray]:
     print(f"\nBuilding {view} training-input kernel (layers_{args.graph_name}.npz) …")
     layers = np.load(PROCESSED_DATA_DIR / f"layers_{args.graph_name}.npz", allow_pickle=True)
     P = layers[f"{view}__P"]
-    nodes = pd.read_parquet(PROCESSED_DATA_DIR / f"graph_nodes_{args.graph_name}.parquet")
-    node_of = {(v, c): i for i, (t, v, c) in enumerate(zip(nodes["node_type"], nodes["version"], nodes["code"]))
-               if t == "4d"}
+    ni = NodeIndex()  # node order of layers_{graph}.npz
     out: dict[str, np.ndarray] = {}
     for ver in ["SNI92", "SNI02", "SNI07"]:
-        idx = [node_of.get((ver, c)) for c in CODES[ver]]
+        idx = [ni.get("4d", ver, c) for c in CODES[ver]]
         if any(i is None for i in idx):
-            print(f"  SKIPPED {ver} — codes missing from graph_nodes_{args.graph_name}.parquet")
+            print(f"  SKIPPED {ver} — codes missing from the graph's node index")
             continue
         K = P[np.ix_(idx, idx)].astype(np.float64)
         np.fill_diagonal(K, 0.0)
@@ -404,7 +373,6 @@ def build_baseline_source(seed: int) -> dict[str, np.ndarray]:
     print("\nBuilding baseline (untrained text-prior-init+PCA) kernel …")
     from sentence_transformers import SentenceTransformer
     from sklearn.decomposition import PCA
-    from latent_industry.graph.nodes import NodeIndex
 
     ni = NodeIndex()
     model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")

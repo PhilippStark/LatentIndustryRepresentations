@@ -244,8 +244,6 @@ __marimo__/
 
 # SLURM job definitions and logs: kept locally / on LUNARC, never pushed
 jobs/
-results/**/*_with_innovation.parquet
-results/regional_innovation/innovation_prediction_oof_scores.csv
 
 results/regional_growth/multilayer_v1_map_slider.html
 archive/

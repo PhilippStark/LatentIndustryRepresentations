@@ -64,10 +64,6 @@ class NodeIndex:
 
         self.sni_4d = sni_4d
         self.hub_3d, self.hub_2d, self.hub_section = hub_3d, hub_2d, hub_section
-        # Backward-compat aliases — every existing caller reads these three
-        # (SNI07-only) names directly; kept so nothing upstream needs to
-        # change just because the other two versions' hubs now also exist.
-        self.sni07_3d, self.sni07_2d, self.sni07_sec = hub_3d["SNI07"], hub_2d["SNI07"], hub_section["SNI07"]
         self.sections = {
             "SNI07": SNI_2digits_to_sections("SNI07"),
             "SNI02": SNI_2digits_to_sections("SNI02"),

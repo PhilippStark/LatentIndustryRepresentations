@@ -3,35 +3,31 @@ P02_shared_geometry_reconstruction.py
 =====================================
 Result 2: does the one shared embedding geometry reconstruct each relational
 view it was trained on? Compares cosine similarity in the trained space with
-each source's own relatedness, and with the untrained text-encoder baseline
-(sentence-transformers/all-MiniLM-L6-v2, the model used for the text-prior
-initialisation).
+each source's own relatedness, and with the baseline: the untrained text
+encoder (sentence-transformers/all-MiniLM-L6-v2, 384-d). Training starts from
+the same encoder's output reduced to 64-d by PCA, so the baseline is the text
+prior before that reduction.
 
 Sections
 --------
 E   Labor: Spearman rho between cosine similarity and labor relatedness (per SNI version)
 E2  Ownership: same, against ownership relatedness
 F   Section silhouette of SNI07 4-digit codes
-H   NACE text: rho between cosine similarity and NACE-description similarity
-    (4-digit, 3-digit, 2-digit and section level)
 I   Input-output: rho against IO relatedness at the 2-digit level
-J   Repulsion and fused-target fidelity; only if diffusion_matrix_{graph}.npz
-    exists (not produced by the current pipeline, so skipped for the main run)
-K   Source-wise KL divergence between each view's target and the
-    embedding's similarity distribution
+K   Source-wise KL divergence between each source's row-normalised relatedness
+    and the embedding's cosine-softmax at one fixed temperature (--tau)
 G   Summary table of all scalar metrics, baseline vs trained
-K2  Per-family source table and dot plot (feeds build_paper_tables.py)
+K2  Per-family source table and dot plot
 
-Families with zero training weight (in training_provenance.json) are still
-evaluated, as a generalisation check.
+Hierarchy preservation and cross-version retrieval (P03's sections A/B/B2)
+are recomputed here for the summary table.
 
 Outputs: results/embedding_eval/{run}/ (figures, {run}_summary.csv,
 {run}_K_source_table.csv, log).
 
 Usage (main run)
 ----------------
-  python scripts/evaluation/P02_shared_geometry_reconstruction.py \
-      --run-name shared_cosine_v16 --graph-name layers_v1
+  python scripts/evaluation/P02_shared_geometry_reconstruction.py --run-name shared_cosine_v16
 """
 
 import argparse
@@ -48,16 +44,15 @@ from _shared_eval_context import (
     SEED, PROCESSED_DATA_DIR,
     add_common_args, build_base_context, load_baseline_and_hub_embeddings,
     load_crosswalks, open_log,
-    relation_consistency, compute_key_metrics, kl_source_metrics,
-    _HUB_LABEL_BY_SUFFIX, _SKIP_J2_REGIMES, is_family_excluded,
+    compute_key_metrics, kl_source_metrics, aggregate_up_io_metric,
 )
 
 parser = argparse.ArgumentParser()
-add_common_args(parser)  # includes --graph-name: H/I/J/K read graph_edges_{name}/diffusion_matrix_{name}
+add_common_args(parser)
 parser.add_argument("--tau", type=float, default=0.05,
-                    help="Softmax temperature for section K's source-wise KL evaluation. "
-                         "The same temperature is used for the baseline and trained "
-                         "embeddings.")
+                    help="Fixed softmax temperature for section K's source-wise KL evaluation, "
+                         "used for both the baseline and the trained embeddings (training "
+                         "itself learns one temperature per target).")
 args, _ = parser.parse_known_args()
 
 ctx = build_base_context(args)
@@ -76,8 +71,6 @@ sni07, sni02, sni92         = ctx.sni07, ctx.sni02, ctx.sni92
 section_map_07              = ctx.section_map_07
 eval_dir                    = ctx.eval_dir
 true_targets, true_targets_92 = ctx.true_targets, ctx.true_targets_92
-_hub_from_cache              = ctx._hub_from_cache
-_training_regime             = ctx.training_regime
 
 # ── Redirect stdout to tee (log file + terminal) ───────────────────────────────
 _tee, _log_file = open_log(eval_dir, args.run_name, "P02")
@@ -98,7 +91,7 @@ ctx.labor_path = labor_path
 
 metrics_summary: dict[str, float] = {}
 
-if labor_path.exists() and not is_family_excluded(ctx, "labor"):
+if labor_path.exists():
     labor_df = pd.read_parquet(labor_path)
     ctx.labor_df = labor_df
 
@@ -158,8 +151,6 @@ if labor_path.exists() and not is_family_excluded(ctx, "labor"):
         fig.savefig(out, dpi=150, bbox_inches="tight")
         print(f"\n  → {out}")
     plt.close()
-elif is_family_excluded(ctx, "labor"):
-    print("  SKIPPED — labor was excluded from training (lambda=0.0 in training_provenance.json).")
 else:
     print(f"  {labor_path.name} not found — run build_labor_relatedness.py first.")
 
@@ -167,9 +158,7 @@ else:
 # ══════════════════════════════════════════════════════════════════════════════
 # E2. Ownership flow consistency
 #    Spearman rank correlation between pairwise cosine similarity and
-#    ownership-cooccurrence phi. Same construction and per-version split as E;
-#    not split per training version yet upstream (see build_ownership_relatedness.py),
-#    but the parquet itself already carries all three codings.
+#    ownership-cooccurrence phi. Same construction and per-version split as E.
 # ══════════════════════════════════════════════════════════════════════════════
 
 print("\n" + "═" * 60)
@@ -184,7 +173,7 @@ ver_cfg_own = [
     ("SNI92", idx_92, vecs_92, "SNI92"),
 ]
 
-if ownership_path.exists() and not is_family_excluded(ctx, "ownership"):
+if ownership_path.exists():
     ownership_df = pd.read_parquet(ownership_path)
     ctx.ownership_df = ownership_df
 
@@ -235,8 +224,6 @@ if ownership_path.exists() and not is_family_excluded(ctx, "ownership"):
         fig.savefig(out, dpi=150, bbox_inches="tight")
         print(f"\n  → {out}")
     plt.close()
-elif is_family_excluded(ctx, "ownership"):
-    print("  SKIPPED — ownership was excluded from training (lambda=0.0 in training_provenance.json).")
 else:
     print(f"  {ownership_path.name} not found — run build_ownership_relatedness.py first.")
 
@@ -277,79 +264,10 @@ else:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# H. NACE relation consistency (nace_4d / nace_3d / nace_2d / nace_sec)
-#    Spearman rank correlation between pairwise cosine similarity in the
-#    ORIGINAL NACE-description embedding (the nace_text view's edge weights in
-#    graph_edges_{name}.parquet) and in the TRAINED
-#    model's own embedding space, for the same code pairs. Tests whether the
-#    larger embedding model's semantic structure survived into the smaller
-#    fine-tuned sentence-transformer at every hierarchy level, not just 4d.
-# ══════════════════════════════════════════════════════════════════════════════
-
-print("\n" + "═" * 60)
-print("H. NACE relation consistency (nace_4d / nace_3d / nace_2d / nace_sec)")
-print("═" * 60)
-
-graph_edges_path = PROCESSED_DATA_DIR / f"graph_edges_{args.graph_name}.parquet"
-graph_nodes_path = PROCESSED_DATA_DIR / f"graph_nodes_{args.graph_name}.parquet"
-ctx.graph_edges_path = graph_edges_path
-ctx.graph_nodes_path = graph_nodes_path
-
-if graph_edges_path.exists() and graph_nodes_path.exists() and not is_family_excluded(ctx, "nace_text"):
-    graph_nodes_df = pd.read_parquet(graph_nodes_path)
-    graph_edges_df = pd.read_parquet(graph_edges_path)
-    node_lookup = dict(zip(graph_nodes_df.index, graph_nodes_df["code"]))
-    ctx.graph_edges_df = graph_edges_df
-    ctx.node_lookup = node_lookup
-
-    nace_levels = [
-        ("nace_4d",  idx_07,  vecs_07,  "4d"),
-        ("nace_3d",  idx_3d,  vecs_3d,  "3d"),
-        ("nace_2d",  idx_2d,  vecs_2d,  "2d"),
-        ("nace_sec", idx_sec, vecs_sec, "section"),
-    ]
-
-    fig, axes = plt.subplots(1, len(nace_levels), figsize=(6 * len(nace_levels), 5))
-    for ax, (etype, idx_map, vecs_l, lbl) in zip(axes, nace_levels):
-        gt, sim = relation_consistency(etype, idx_map, vecs_l, graph_edges_df, node_lookup)
-        print(f"\n  {etype} ({lbl})")
-        hub_label = _HUB_LABEL_BY_SUFFIX.get(lbl)
-        from_cache = hub_label is not None and _hub_from_cache.get(hub_label, False)
-        metric_key = f"H_nace_rho_{lbl}_agg" if from_cache else f"H_nace_rho_{lbl}"
-        if len(gt) >= 10:
-            rho, pval = spearmanr(sim, gt)
-            print(f"  Pairs evaluated:          {len(gt):,}")
-            print(f"  Spearman rho (sim~nace):  {rho:.4f}  (p={pval:.2e})")
-            if from_cache:
-                print(f"  ({hub_label} read from the aggregation cache: compares the centroid "
-                      f"of a division's codes with the base model's encoding of the division "
-                      f"description; reported as {metric_key})")
-            metrics_summary[metric_key] = round(float(rho), 4)
-            ax.hexbin(gt, sim, gridsize=35, cmap="Greens", mincnt=1)
-            ax.set_xlabel("Original NACE-embedding cosine similarity")
-            ax.set_ylabel("Fine-tuned cosine similarity")
-            ax.set_title(f"{etype}  ρ={rho:.3f}  n={len(gt):,}")
-        else:
-            ax.set_visible(False)
-            print(f"  Skipped: too few matching pairs ({len(gt)})")
-
-    fig.suptitle("NACE relation consistency — original embedding vs fine-tuned similarity",
-                 fontsize=12, y=1.02)
-    plt.tight_layout()
-    out_path = eval_dir / f"{args.run_name}_H_nace_consistency.png"
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
-    print(f"\n  → {out_path}")
-    plt.close()
-elif is_family_excluded(ctx, "nace_text"):
-    print("  SKIPPED — nace_text was excluded from training (lambda=0.0 in training_provenance.json).")
-else:
-    print(f"  {graph_edges_path.name} / {graph_nodes_path.name} not found — run build_layer_transition_matrices.py first.")
-
-# ══════════════════════════════════════════════════════════════════════════════
 # I. IO relation consistency
 #    Spearman rank correlation between blended input-output relatedness
 #    ("sim" in io_relatedness_SNI07.parquet, the column the io view uses) and
-#    fine-tuned cosine similarity at the 2-digit division level.
+#    trained cosine similarity at the 2-digit division level.
 # ══════════════════════════════════════════════════════════════════════════════
 
 print("\n" + "═" * 60)
@@ -358,7 +276,7 @@ print("═" * 60)
 
 io_path = PROCESSED_DATA_DIR / "io_relatedness_SNI07.parquet"
 ctx.io_path = io_path
-if io_path.exists() and not is_family_excluded(ctx, "io"):
+if io_path.exists():
     io_df = pd.read_parquet(io_path)
     ctx.io_df = io_df
     io_gt, io_sim = [], []
@@ -374,7 +292,6 @@ if io_path.exists() and not is_family_excluded(ctx, "io"):
         print(f"  Spearman rho (sim~io):  {rho:.4f}  (p={pval:.2e})")
         metrics_summary["I_io_rho"] = round(float(rho), 4)
 
-        from _shared_eval_context import aggregate_up_io_metric
         _agg = aggregate_up_io_metric(vecs_07, codes_07, io_df)
         if _agg:
             print(f"  Spearman rho (aggregate-up sim~io):  {_agg['I_io_aggregate_rho']:.4f}  "
@@ -384,7 +301,7 @@ if io_path.exists() and not is_family_excluded(ctx, "io"):
         fig, ax = plt.subplots(figsize=(6, 5))
         ax.hexbin(io_gt, io_sim, gridsize=35, cmap="Purples", mincnt=1)
         ax.set_xlabel("Blended IO relatedness (sim)")
-        ax.set_ylabel("Fine-tuned cosine similarity (2d divisions)")
+        ax.set_ylabel("Trained cosine similarity (2d divisions)")
         ax.set_title(f"IO relation consistency  ρ={rho:.3f}  n={len(io_gt):,}")
         plt.tight_layout()
         out_path = eval_dir / f"{args.run_name}_I_io_consistency.png"
@@ -393,122 +310,16 @@ if io_path.exists() and not is_family_excluded(ctx, "io"):
         plt.close()
     else:
         print(f"  Skipped: too few matching pairs ({len(io_gt)})")
-elif is_family_excluded(ctx, "io"):
-    print("  SKIPPED — io was excluded from training (lambda=0.0 in training_provenance.json).")
 else:
     print(f"  {io_path.name} not found — run build_input_output_relatedness.py first.")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# J. Repulsion consistency & training-target fidelity
-#    Requires diffusion_matrix_{name}.npz (a single fused diffusion target,
-#    S and S_neg); the current graph pipeline does not write it, so J is
-#    skipped for the main run.
-#    J1: are repulsion pairs (S_neg) less similar than other SNI07 pairs?
-#    J2: did training converge to its own assigned target? Spearman rho
-#        between the diffusion target S (row-normalised — what the KL loss
-#        was fit to) and the fine-tuned model's own cosine similarity, pooled
-#        over every nonzero target pair across all three SNI versions. Unlike
-#        every other section here, this checks fit quality, not domain
-#        validity — a model can score well here and still have learned a
-#        badly-calibrated target (that's what A-I are for).
-# ══════════════════════════════════════════════════════════════════════════════
-
-print("\n" + "═" * 60)
-print("J. Repulsion consistency & training-target fidelity")
-print("═" * 60)
-
-diffusion_path = PROCESSED_DATA_DIR / f"diffusion_matrix_{args.graph_name}.npz"
-ctx.diffusion_path = diffusion_path
-if diffusion_path.exists():
-    dmat = np.load(diffusion_path, allow_pickle=True)
-    S, S_neg = dmat["S"], dmat["S_neg"]
-    dm_codes, dm_versions = dmat["codes"], dmat["versions"]
-    ctx.S, ctx.S_neg, ctx.dm_codes, ctx.dm_versions = S, S_neg, dm_codes, dm_versions
-
-    from _shared_eval_context import _align_to_diffusion_matrix
-    dm_vecs, dm_valid = _align_to_diffusion_matrix(ctx, vecs_07, vecs_02, vecs_92, dm_codes, dm_versions)
-    print(f"  Aligned {int(dm_valid.sum()):,}/{len(dm_codes):,} diffusion-matrix nodes to fine-tuned embeddings")
-
-    # ── J1: repulsion ──────────────────────────────────────────────────────
-    is_07 = dm_versions == "SNI07"
-    sub_idx = np.where(is_07 & dm_valid)[0]
-    if len(sub_idx) > 10:
-        sub_vecs = dm_vecs[sub_idx]
-        sim_mat  = sub_vecs @ sub_vecs.T
-        neg_sub  = S_neg[np.ix_(sub_idx, sub_idx)]
-        iu, ju   = np.triu_indices(len(sub_idx), k=1)
-        neg_w, sim_w = neg_sub[iu, ju], sim_mat[iu, ju]
-        repel_mask = neg_w > 0
-        n_repel = int(repel_mask.sum())
-        if n_repel >= 10:
-            rho, pval = spearmanr(sim_w[repel_mask], neg_w[repel_mask])
-            repel_mean = float(sim_w[repel_mask].mean())
-            other_mean = float(sim_w[~repel_mask].mean())
-            print(f"\n  J1. Repulsion pairs (S_neg > 0): {n_repel:,}")
-            print(f"  Mean fine-tuned sim  (repulsion pairs):   {repel_mean:.4f}")
-            print(f"  Mean fine-tuned sim  (other SNI07 pairs): {other_mean:.4f}")
-            print(f"  Spearman rho (sim ~ repulsion weight):    {rho:.4f}  (p={pval:.2e})  "
-                  f"[expect < 0: stronger repulsion → lower similarity]")
-            metrics_summary["J1_repulsion_rho"] = round(float(rho), 4)
-            metrics_summary["J1_repulsion_gap"] = round(other_mean - repel_mean, 4)
-
-            fig, ax = plt.subplots(figsize=(8, 4))
-            bins = np.linspace(-0.1, 1.0, 50)
-            ax.hist(sim_w[~repel_mask], bins=bins, density=True, alpha=0.55,
-                    color="steelblue", label=f"Other pairs (n={int((~repel_mask).sum()):,})")
-            ax.hist(sim_w[repel_mask],  bins=bins, density=True, alpha=0.55,
-                    color="crimson",    label=f"Repulsion pairs (n={n_repel:,})")
-            ax.axvline(other_mean, color="steelblue", linestyle="--", linewidth=1.5)
-            ax.axvline(repel_mean, color="crimson",   linestyle="--", linewidth=1.5)
-            ax.set_xlabel("Fine-tuned cosine similarity")
-            ax.set_ylabel("Density")
-            ax.set_title(f"Repulsion consistency (SNI07 4d)  ρ={rho:.3f}")
-            ax.legend(fontsize=9)
-            ax.yaxis.grid(True, linestyle="--", alpha=0.4); ax.set_axisbelow(True)
-            plt.tight_layout()
-            out_path = eval_dir / f"{args.run_name}_J1_repulsion_consistency.png"
-            fig.savefig(out_path, dpi=150, bbox_inches="tight")
-            print(f"  → {out_path}")
-            plt.close()
-        else:
-            print(f"  J1. Skipped: too few repulsion pairs ({n_repel})")
-    else:
-        print("  J1. Skipped: too few valid SNI07 nodes in diffusion matrix")
-
-    # ── J2: training-target fidelity ───────────────────────────────────────
-    if _training_regime in _SKIP_J2_REGIMES:
-        print(f"\n  J2. N/A — regime ({_training_regime!r}) is not trained on a single "
-              f"fused diffusion target.")
-    else:
-        valid_idx = np.where(dm_valid)[0]
-        if len(valid_idx) > 10:
-            v_vecs = dm_vecs[valid_idx]
-            v_sim  = v_vecs @ v_vecs.T
-            v_S    = S[np.ix_(valid_idx, valid_idx)]
-            nz_i, nz_j = np.nonzero(v_S)
-            keep = nz_i != nz_j
-            nz_i, nz_j = nz_i[keep], nz_j[keep]
-            if len(nz_i) > 10:
-                rho, pval = spearmanr(v_sim[nz_i, nz_j], v_S[nz_i, nz_j])
-                print(f"\n  J2. Training-target fidelity (S vs fine-tuned sim)")
-                print(f"  Nonzero target pairs evaluated: {len(nz_i):,}")
-                print(f"  Spearman rho (sim ~ target S):  {rho:.4f}  (p={pval:.2e})")
-                metrics_summary["J2_target_fidelity_rho"] = round(float(rho), 4)
-            else:
-                print("  J2. Skipped: too few nonzero target entries")
-        else:
-            print("  J2. Skipped: too few valid nodes")
-else:
-    print(f"  {diffusion_path.name} not found — section J skipped.")
-
-
-# ══════════════════════════════════════════════════════════════════════════════
 # K. Source-wise KL evaluation
-#    For every evidence family s, KL(P^(s) || Q) at the trainer's own tau —
-#    the raw-vs-trained delta (printed/saved in section G's Δ table, since
-#    this dict feeds both metrics_summary here and compute_key_metrics for
-#    the baseline pass) directly measures whether integrated training
-#    improved or hurt each source, in the training loss's own units.
+#    For every evidence family s, KL(P^(s) || Q) with Q the cosine-softmax at
+#    the fixed temperature --tau (default 0.05), the same for the baseline and
+#    the trained embeddings; the baseline-vs-trained delta is printed in
+#    section G. Training learns its own temperature per target (bounded to
+#    [e^-1, e]), so these values are not the training loss.
 # ══════════════════════════════════════════════════════════════════════════════
 
 print("\n" + "═" * 60)
@@ -544,7 +355,7 @@ metrics_summary = _seeded
 
 col_w = 32
 
-# Baseline comparison (always computed; delta = 0 if --baseline was set)
+# Baseline comparison: the same metrics for the untrained text encoder
 print("  Computing baseline metrics for comparison …")
 baseline_summary = compute_key_metrics(
     ctx, bl_vecs_07, bl_vecs_02, bl_vecs_92, bl_vecs_3d, bl_vecs_2d, bl_vecs_sec,
@@ -552,7 +363,7 @@ baseline_summary = compute_key_metrics(
 )
 
 all_keys = sorted(set(metrics_summary) | set(baseline_summary))
-print(f"\n  {'Metric':<{col_w}}  {'Baseline':>9}  {'Fine-tuned':>10}  {'Δ':>8}")
+print(f"\n  {'Metric':<{col_w}}  {'Baseline':>9}  {'Trained':>10}  {'Δ':>8}")
 print(f"  {'-'*col_w}  {'-'*9}  {'-'*10}  {'-'*8}")
 for k in all_keys:
     bl_v = baseline_summary.get(k, float("nan"))
@@ -576,7 +387,7 @@ print(f"\n  → {summary_path}")
 # ══════════════════════════════════════════════════════════════════════════════
 # K2. Consolidated Figure-2 source table + dot plot
 #    One row per evidence family: KL_raw, KL_trained, relative KL reduction,
-#    plus the matching Spearman-rho-style metric already computed in E/H/I/B/J2.
+#    plus the matching Spearman-rho-style metric already computed in E/I/B.
 # ══════════════════════════════════════════════════════════════════════════════
 
 FAMILY_TABLE = [
@@ -586,14 +397,9 @@ FAMILY_TABLE = [
     ("Ownership (SNI07)", "K_ownership_KL_07",       "E2_ownership_rho_07"),
     ("Ownership (SNI02)", "K_ownership_KL_02",       "E2_ownership_rho_02"),
     ("Ownership (SNI92)", "K_ownership_KL_92",       "E2_ownership_rho_92"),
-    ("NACE 4-digit",      "K_nace_KL_4d",            "H_nace_rho_4d"),
-    ("NACE 3-digit",      "K_nace_KL_3d",            "H_nace_rho_3d"),
-    ("NACE 2-digit",      "K_nace_KL_2d",            "H_nace_rho_2d"),
-    ("NACE section",      "K_nace_KL_section",       "H_nace_rho_section"),
     ("Input-output",      "K_io_KL",                 "I_io_rho"),
     ("Concordance 02→07", "K_concordance_KL_02to07", "B_MRR_02to07"),
     ("Concordance 92→02", "K_concordance_KL_92to02", "B2_MRR_92to02"),
-    ("Fused diffusion",   "K_fused_target_KL",       "J2_target_fidelity_rho"),
     # Hierarchy: no KL (a row distribution does not represent tree structure); the
     # tree-distance rho above (Section A) is the source-specific metric instead.
     ("Hierarchy",         None,                      "A_treedist_rho"),

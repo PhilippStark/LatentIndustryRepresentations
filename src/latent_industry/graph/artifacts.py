@@ -2,10 +2,7 @@
 artifacts.py — save/load of the graph pipeline's outputs (PROCESSED_DATA_DIR).
 
 Stage 1 (scripts/graph/build_layer_transition_matrices.py):
-  layers_{name}.npz                     P / avail / domain per view, plus S_neg
-  graph_nodes_{name}.parquet            node table
-  graph_edges_{name}.parquet            raw (pre-normalisation) edges of every view
-  graph_negative_edges_{name}.parquet   negative NACE cosine pairs (diagnostics)
+  layers_{name}.npz                     P / domain per view
 
 Stage 2 (scripts/graph/build_layer_diffusion_targets.py):
   layer_diffusion_expanded_{name}.npz   P_l^t / domain / family per (view, t)
@@ -15,28 +12,24 @@ import json
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
 from latent_industry.common.paths import PROCESSED_DATA_DIR
 from latent_industry.graph.layers import Layer
-from latent_industry.graph.nodes import NodeIndex
 
 
 def _layers_path(name: str) -> Path:
     return PROCESSED_DATA_DIR / f"layers_{name}.npz"
 
 
-def save_layers(name: str, ni: NodeIndex, layers: dict[str, Layer], S_neg: np.ndarray) -> None:
-    payload = {"layer_names": np.array(sorted(layers)), "target_ids": np.array(ni.target_ids),
-               "S_neg": S_neg.astype(np.float32)}
+def save_layers(name: str, layers: dict[str, Layer]) -> None:
+    payload = {"layer_names": np.array(sorted(layers))}
     for lname, layer in layers.items():
         payload[f"{lname}__P"] = layer.P.astype(np.float32)
-        payload[f"{lname}__avail"] = layer.avail
         payload[f"{lname}__domain"] = layer.domain
     np.savez_compressed(_layers_path(name), **payload)
 
 
-def load_layers(name: str) -> tuple[dict[str, Layer], np.ndarray, list[int]]:
+def load_layers(name: str) -> dict[str, Layer]:
     """
     Load the cached view transition matrices of stage 1; raises if stage 1 has
     not been run for `name`.
@@ -45,43 +38,13 @@ def load_layers(name: str) -> tuple[dict[str, Layer], np.ndarray, list[int]]:
     if not path.exists():
         raise FileNotFoundError(
             f"{path} not found — run scripts/graph/build_layer_transition_matrices.py "
-            f"--name {name} first (stage 1, run once; this stage reads its cached output)."
+            f"--name {name} first."
         )
     data = np.load(path, allow_pickle=False)
-    layer_names = [str(x) for x in data["layer_names"]]
-    layers = {}
-    for lname in layer_names:
-        layers[lname] = Layer(
-            name=lname,
-            P=data[f"{lname}__P"].astype(np.float64),
-            avail=data[f"{lname}__avail"],
-            domain=data[f"{lname}__domain"],
-            edges=pd.DataFrame(columns=["src", "dst", "weight", "type"]),  # provenance only, not cached here
-        )
-    return layers, data["S_neg"], data["target_ids"].tolist()
-
-
-def save_graph_tables(name: str, ni: NodeIndex, edges_df: pd.DataFrame,
-                       negative_edges_df: pd.DataFrame) -> None:
-    ni.nodes.to_parquet(PROCESSED_DATA_DIR / f"graph_nodes_{name}.parquet", index=True)
-    edges_df.to_parquet(PROCESSED_DATA_DIR / f"graph_edges_{name}.parquet", index=False)
-    negative_edges_df.to_parquet(PROCESSED_DATA_DIR / f"graph_negative_edges_{name}.parquet", index=False)
-
-
-def load_raw_edges(name: str, layer: str | None = None) -> pd.DataFrame:
-    """
-    Stage 1's raw (pre-normalisation) edge table, optionally filtered to one
-    view. Used for lifting `io` to a finer level, which must happen before
-    row-normalisation.
-    """
-    path = PROCESSED_DATA_DIR / f"graph_edges_{name}.parquet"
-    if not path.exists():
-        raise FileNotFoundError(
-            f"{path} not found — run scripts/graph/build_layer_transition_matrices.py "
-            f"--name {name} first (stage 1; this reads its cached edge table)."
-        )
-    edges = pd.read_parquet(path)
-    return edges[edges["layer"] == layer].reset_index(drop=True) if layer is not None else edges
+    return {
+        lname: Layer(name=lname, P=data[f"{lname}__P"].astype(np.float64), domain=data[f"{lname}__domain"])
+        for lname in (str(x) for x in data["layer_names"])
+    }
 
 
 def _layer_diffusion_expanded_path(name: str) -> Path:
@@ -118,7 +81,7 @@ def load_layer_diffusion_targets_expanded(
     if not path.exists():
         raise FileNotFoundError(
             f"{path} not found — run scripts/graph/build_layer_diffusion_targets.py "
-            f"--name {name} --expanded first."
+            f"--name {name} first."
         )
     data = np.load(path, allow_pickle=False)
     target_ids = [str(x) for x in data["target_ids"]]
@@ -126,5 +89,3 @@ def load_layer_diffusion_targets_expanded(
     domains = {t: data[f"{t}__domain"] for t in target_ids}
     families = json.loads(str(data["families_json"]))
     return targets, domains, families
-
-

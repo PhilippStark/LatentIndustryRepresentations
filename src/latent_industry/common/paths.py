@@ -15,7 +15,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 METADATA_DIR = PROJECT_ROOT / "metadata"
 RESULTS_DIR = PROJECT_ROOT / "results"
-CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 
 # Data root: LUNARC project storage by default; override with the
 # LATENT_DATA_ROOT environment variable (e.g. the repository's data/ folder).
@@ -26,6 +25,3 @@ LUNARC_DATA_ROOT = Path(os.environ.get(
 RAW_DATA_DIR = LUNARC_DATA_ROOT / "raw"          # cached/downloaded external source files
 PROCESSED_DATA_DIR = LUNARC_DATA_ROOT / "processed"  # pipeline-generated artifacts
 EMBEDDING_DIR = LUNARC_DATA_ROOT / "embedding"   # trained embeddings, one folder per run
-
-# Large interactive HTML figures, kept outside the git-tracked results/ tree.
-INTERACTIVE_PLOTS_DIR = LUNARC_DATA_ROOT / "results" / "interactive_plots"

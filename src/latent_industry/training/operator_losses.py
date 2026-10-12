@@ -4,9 +4,7 @@ operator_losses.py — losses between a target and the observation model's logit
 kl_loss and cross_entropy_loss share one computation (_categorical_nll) and
 differ only in whether the target entropy H(p) is added back to the reported
 value; their gradients are identical. Both are categorical-likelihood
-observation models. mse_loss (Gaussian likelihood on softmax probabilities)
-is an alternative for io. ordinal_margin_loss enforces the hierarchy tier
-ordering.
+observation models. ordinal_margin_loss enforces the hierarchy tier ordering.
 
 Targets and active masks arrive domain-restricted, with the diagonal
 excluded and rows renormalised over j ≠ i (operator_trainer.restrict_to_domain);
@@ -14,7 +12,6 @@ ordinal targets are tier-rank matrices and are not renormalised.
 """
 
 import torch
-import torch.nn.functional as F
 
 
 def _categorical_nll(logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor) -> torch.Tensor:
@@ -38,11 +35,6 @@ def kl_loss(logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tenso
 
 def cross_entropy_loss(logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor) -> torch.Tensor:
     return _categorical_nll(logits, target, active_mask)
-
-
-def mse_loss(logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor) -> torch.Tensor:
-    Q = torch.softmax(logits, dim=-1)
-    return F.mse_loss(Q[active_mask], target[active_mask])
 
 
 _ORDINAL_TIERS = (1, 2, 3, 4)
@@ -87,7 +79,7 @@ def ordinal_margin_loss(
     return row_loss[active_mask].mean()
 
 
-_DISPATCH = {"kl": kl_loss, "ce": cross_entropy_loss, "mse": mse_loss, "ordinal": ordinal_margin_loss}
+_DISPATCH = {"kl": kl_loss, "ce": cross_entropy_loss, "ordinal": ordinal_margin_loss}
 
 
 def layer_loss(kind: str, logits: torch.Tensor, target: torch.Tensor, active_mask: torch.Tensor) -> torch.Tensor:

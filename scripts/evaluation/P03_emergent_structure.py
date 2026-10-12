@@ -43,8 +43,7 @@ from _shared_eval_context import (
 )
 
 parser = argparse.ArgumentParser()
-# P03 does not read the graph files, so no --graph-name.
-add_common_args(parser, graph_name=False)
+add_common_args(parser)
 args, _ = parser.parse_known_args()
 
 ctx = build_base_context(args)

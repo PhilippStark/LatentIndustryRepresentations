@@ -4,12 +4,10 @@ build_paper_tables.py
 Assembles the paper's Result 1–3 tables and figures in results/paper/ from
 outputs other scripts have already written (nothing is recomputed):
 
-1. Source complementarity (Result 1), restricted to the sources with
-   non-zero training weight in {run}/training_provenance.json, using
-   P01_source_complementarity.py's functions.
+1. Source complementarity (Result 1), using P01_source_complementarity.py's
+   functions.
 2. Reconstruction table (Result 2): baseline vs trained Spearman rho per
-   evidence family, from P02's {run}_summary.csv, with a column marking
-   whether the family is part of the training objective.
+   evidence family, from P02's {run}_summary.csv.
 3. Retrieval table (Result 3, sections B/B2), from P03.
 4. Copies of the hierarchy-preservation plot and the regional result plots
    into results/paper/ (growth and wage growth into results/paper/appendix/).
@@ -20,7 +18,6 @@ Usage
 """
 
 import argparse
-import json
 import shutil
 import sys
 from pathlib import Path
@@ -32,10 +29,8 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from latent_industry.common.paths import EMBEDDING_DIR  # noqa: E402
-
 from P01_source_complementarity import (  # noqa: E402
-    ALL_SOURCE_NAMES, load_all_sources, build_matrix, plot_matrices,
+    load_all_sources, build_matrix, plot_matrices,
     correlation_metric, nn_overlap_metric, cka_metric, mutual_information_metric,
 )
 
@@ -43,27 +38,6 @@ DEFAULT_RUN_NAME = "shared_cosine_v16"
 
 eval_dir  = project_root / "results" / "embedding_eval"
 paper_dir = project_root / "results" / "paper"
-
-
-# ── Which P01 sources did this run actually train on? ──────────────────────
-
-def load_family_weights(run_name: str) -> dict:
-    path = EMBEDDING_DIR / run_name / "training_provenance.json"
-    if not path.exists():
-        return {}
-    with open(path) as f:
-        return json.load(f).get("family_weights", {})
-
-
-def active_sources(run_name: str) -> list[str]:
-    """
-    Sources with a non-zero training weight. Without a training_provenance.json
-    (e.g. the baseline) every P01 source is kept.
-    """
-    weights = load_family_weights(run_name)
-    if not weights:
-        return list(ALL_SOURCE_NAMES)
-    return [s for s in ALL_SOURCE_NAMES if weights.get(s) != 0.0]
 
 
 # ── LaTeX / Markdown table writers ─────────────────────────────────────────
@@ -112,26 +86,14 @@ def _mean_of(row: pd.Series, keys: list[str]) -> float:
 
 
 # ── Rho table row layout (Result 2) ────────────────────────────────────────
-# One row per evidence family. Labor/Ownership average over whichever
-# SNI07/02/92 rho columns P02 computed (same granularity, different coding
-# vintage). NACE's four hierarchy levels (4d/3d/2d/section) are different
-# granularities and get one row each. Input-output gets two rows: the
-# 2-digit hub-cosine rho (I_io_rho) and the aggregate-up rho over 4-digit
-# codes (I_io_aggregate_rho, mean of 4d-4d cosines per division pair).
-#
-# A family excluded from training (lambda=0.0 in training_provenance.json)
-# has no cached rho at all — P02 gates compute_key_metrics on
-# is_family_excluded — so its row is dropped from the paper table entirely
-# (see the pd.isna(b) and pd.isna(t) filter below) rather than printed as
-# "--". These are the current run's OWN family names, in
-# training_provenance.json vocabulary, for that filter to check against.
+# One row per evidence family. Labor/Ownership average over the SNI07/02/92
+# rho columns P02 computed (same granularity, different coding vintage).
+# Input-output gets two rows: the 2-digit hub-cosine rho (I_io_rho) and the
+# aggregate-up rho over 4-digit codes (I_io_aggregate_rho, mean of 4d-4d
+# cosines per division pair).
 RHO_FAMILIES = [
     ("Labor",                  ["E_labor_rho_07", "E_labor_rho_02", "E_labor_rho_92"]),
     ("Ownership",               ["E2_ownership_rho_07", "E2_ownership_rho_02", "E2_ownership_rho_92"]),
-    ("NACE 4-digit",            ["H_nace_rho_4d"]),
-    ("NACE 3-digit",            ["H_nace_rho_3d"]),
-    ("NACE 2-digit",            ["H_nace_rho_2d"]),
-    ("NACE section",            ["H_nace_rho_section"]),
     ("Input-output (2-digit)",  ["I_io_rho"]),
     ("Input-output (4-digit)",  ["I_io_aggregate_rho"]),
     ("Hierarchy",               ["A_treedist_rho"]),
@@ -159,18 +121,10 @@ def load_summary(run_name: str) -> pd.DataFrame:
 
 def build_result1(args) -> None:
     print("=" * 70)
-    print("1. Source complementarity — restricted to sources used in this run")
+    print("1. Source complementarity")
     print("=" * 70)
 
-    weights = load_family_weights(args.run_name)
-    active = active_sources(args.run_name)
-    excluded = [s for s in ALL_SOURCE_NAMES if s not in active]
-    print(f"  family_weights: {weights or '(none found — no filtering applied)'}")
-    print(f"  Active sources:   {active}")
-    print(f"  Excluded sources: {excluded or 'none'}")
-
-    all_sources = load_all_sources(args.sni_version)
-    sources = {k: v for k, v in all_sources.items() if k in active}
+    sources = load_all_sources(args.sni_version)
 
     corr       = build_matrix(sources, correlation_metric)
     nn_overlap = build_matrix(sources, lambda a, b: nn_overlap_metric(a, b, args.topk))
@@ -213,29 +167,15 @@ def build_result2(args) -> tuple[pd.Series, pd.Series, str]:
     baseline = summary.loc["baseline"]
     trained  = summary.loc[args.run_name]
 
-    # Column header just says "Trained" — the run name goes in the table
-    # caption instead, since spelling it out as a header (e.g. "Trained
-    # (shared_cosine_v15_textprior_pca_no_nace_trade_innovation)") doesn't
-    # fit in an actual paper table.
+    # Column header just says "Trained"; the run name goes in the caption.
     trained_col = "Trained"
     rho_rows = []
-    _skipped_rho_rows = []
     for family, keys in RHO_FAMILIES:
         b, t = _mean_of(baseline, keys), _mean_of(trained, keys)
-        # Restrict the paper table to sources this run actually evaluated —
-        # an excluded family (lambda=0.0) has no cached rho at all (P02
-        # gates its computation on is_family_excluded), so b/t are both NaN
-        # and the row would otherwise print as a bare "--" line.
-        if pd.isna(b) and pd.isna(t):
-            _skipped_rho_rows.append(family)
-            continue
         delta = (t - b) if pd.notna(b) and pd.notna(t) else float("nan")
         rho_rows.append({"Evidence family": family,
                           "Baseline (text-prior)": b, trained_col: t, "Delta": delta})
     rho_df = pd.DataFrame(rho_rows)
-    if _skipped_rho_rows:
-        print(f"  NOTE: {_skipped_rho_rows} were excluded from training (lambda=0.0) for this "
-              f"run and never evaluated by P02 — omitted from the paper table.")
 
     rho_csv = paper_dir / "result2_rho_table.csv"
     rho_df.to_csv(rho_csv, index=False)

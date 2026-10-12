@@ -30,7 +30,6 @@ Outputs (<LATENT_DATA_ROOT>/processed/)
 ---------------------------------------
   io_relatedness_SNI07.parquet   nace2d_from, nace2d_to, sim, phi_scb, phi_eurostat, n_sources
   io_relatedness_SNI02.parquet   nace2d_from, nace2d_to, sim, phi_wiod, n_sources
-  io_flows_by_year.parquet       source, version, year, nace2d_from, nace2d_to, value
 
 In the main run (shared_cosine_v16) these tables feed the `io` view of the
 `layers_v1` graph (scripts/graph/build_layer_transition_matrices.py).
@@ -82,7 +81,6 @@ if args.max_year < 2008:
     raise ValueError("--max-year below 2008 is not supported by the current SCB/WIOD blend")
 OUT_DIR = Path(args.output_dir) if args.output_dir else PROCESSED_DATA_DIR
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-FLOWS_BY_YEAR_PATH = OUT_DIR / "io_flows_by_year.parquet"
 OUT_PATH_SNI07 = OUT_DIR / "io_relatedness_SNI07.parquet"
 OUT_PATH_SNI02 = OUT_DIR / "io_relatedness_SNI02.parquet"
 
@@ -202,9 +200,7 @@ def broadcast_to_divisions(flows: pd.DataFrame, section_map_inv: dict[str, list[
     its covered divisions via _allocate_shares (equal-share) so that summing
     the expanded value over every (div_from, div_to) pair reproduces the
     original (code_from, code_to) value exactly. `extra_cols` (e.g. "year")
-    are carried through unchanged — this is what lets the same function
-    serve both the year-tagged tidy table and the pooled-across-years
-    per-source phi input."""
+    are carried through unchanged."""
     expanded = []
     share_cache: dict[str, list[tuple[str, float]]] = {}
     cols = ["code_from", "code_to", "value", *extra_cols]
@@ -226,27 +222,16 @@ def _check_conservation(label: str, raw_total: float, expanded_total: float) -> 
           f"expanded={expanded_total:.2f}  ratio={ratio:.4f}")
 
 
-def source_phi_by_year(flows: pd.DataFrame, section_map_inv: dict[str, list[str]],
-                        label: str, source_name: str, version: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def source_phi(flows: pd.DataFrame, section_map_inv: dict[str, list[str]], label: str) -> pd.DataFrame:
     """
-    Expand a source's per-year flows to 2-digit divisions and return:
-      (a) the year-tagged division-level table (source, version, year,
-          nace2d_from, nace2d_to, value) for io_flows_by_year.parquet;
-      (b) the source's symmetric_flow_phi, computed on the flows pooled over
-          its years (all within one classification vintage).
+    Expand a source's per-year flows to 2-digit divisions and return its
+    symmetric_flow_phi, computed on the flows pooled over its years (all
+    within one classification vintage).
     """
     expanded = broadcast_to_divisions(flows, section_map_inv, extra_cols=("year",))
     pooled = expanded.groupby(["div_from", "div_to"], as_index=False)["value"].sum()
     _check_conservation(label, flows["value"].sum(), expanded["value"].sum())
-    phi = symmetric_flow_phi(pooled, "div_from", "div_to", "value")
-
-    tidy = expanded.groupby(["div_from", "div_to", "year"], as_index=False)["value"].sum()
-    tidy.insert(0, "source", source_name)
-    tidy.insert(1, "version", version)
-    tidy = tidy.rename(columns={"div_from": "nace2d_from", "div_to": "nace2d_to"})
-    tidy["nace2d_from"] = tidy["nace2d_from"].str.zfill(2)
-    tidy["nace2d_to"] = tidy["nace2d_to"].str.zfill(2)
-    return tidy, phi
+    return symmetric_flow_phi(pooled, "div_from", "div_to", "value")
 
 
 # ── Source 1: SCB domestic SIOT (native SNI07) ────────────────────────────────────
@@ -438,22 +423,19 @@ code_ref = build_code_reference(
 code_ref.to_csv(CODE_REFERENCE_PATH, index=False)
 print(f"  {len(code_ref)} codes -> {CODE_REFERENCE_PATH}")
 
-print("\nComputing per-source, year-tagged division flows + pooled phi …")
-tidy_scb, phi_scb = source_phi_by_year(scb_flows, sni07_section_inv, "SCB", "scb", "SNI07")
+print("\nComputing per-source division flows + pooled phi …")
+phi_scb = source_phi(scb_flows, sni07_section_inv, "SCB")
 phi_scb = phi_scb.rename(columns={"phi": "phi_scb"})
 if not eurostat_flows.empty:
-    tidy_eurostat, phi_eurostat = source_phi_by_year(
-        eurostat_flows, sni07_section_inv, "Eurostat", "eurostat", "SNI07"
-    )
+    phi_eurostat = source_phi(eurostat_flows, sni07_section_inv, "Eurostat")
     phi_eurostat = phi_eurostat.rename(columns={"phi": "phi_eurostat"})
 else:
     print("  Eurostat   : unavailable at this cutoff")
-    tidy_eurostat = pd.DataFrame(columns=["source", "version", "year", "nace2d_from", "nace2d_to", "value"])
     phi_eurostat = pd.DataFrame(columns=["div_from", "div_to", "phi_eurostat"])
 
 # WIOD stays in its native SNI02 divisions (no crosswalk to SNI07). Its codes
 # are NACE Rev. 1.1 for every benchmark year (1995/2000/2005), hence SNI02.
-tidy_wiod, phi_wiod = source_phi_by_year(wiod_flows, sni02_section_inv, "WIOD", "wiod", "SNI02")
+phi_wiod = source_phi(wiod_flows, sni02_section_inv, "WIOD")
 phi_wiod = phi_wiod.rename(columns={"phi": "phi_wiod"})
 
 for name, phi_df, col in [("SCB", phi_scb, "phi_scb"), ("Eurostat", phi_eurostat, "phi_eurostat"),
@@ -463,12 +445,6 @@ for name, phi_df, col in [("SCB", phi_scb, "phi_scb"), ("Eurostat", phi_eurostat
     else:
         print(f"  {name:<10}: {len(phi_df):,} pairs  (phi range [{phi_df[col].min():.4f}, "
               f"{phi_df[col].max():.4f}])")
-
-# ── Year-tagged tidy table (all sources, native divisions, not yet pooled) ────────
-
-flows_by_year = pd.concat([tidy_scb, tidy_eurostat, tidy_wiod], ignore_index=True)
-flows_by_year.to_parquet(FLOWS_BY_YEAR_PATH, index=False)
-print(f"\nSaved year-tagged division flows ({len(flows_by_year):,} rows) → {FLOWS_BY_YEAR_PATH}")
 
 # ── Per-version blend ─────────────────────────────────────────────────────────────
 
@@ -522,7 +498,6 @@ metadata_path.write_text(
                 "wiod_years": sorted(WIOD_YEAR_FILES),
                 "rows": len(result_02),
             },
-            "flows_by_year": str(FLOWS_BY_YEAR_PATH),
         },
         indent=2,
     ),
