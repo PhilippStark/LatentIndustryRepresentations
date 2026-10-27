@@ -81,13 +81,15 @@ for col in [c for c in df.columns if c.endswith(("_coef", "_ci_low", "_ci_high")
 # Figure: one full-width panel per outcome (true size, PNAS page width 17.8 cm)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Drawn like Figs. 5–7 (regional_figures.py): a 16-inch-wide canvas with matplotlib's
-# default font sizes, scaled to the page width in the manuscript, so that text and
-# lines appear at the same size as in those figures.
+# Drawn like Figs. 5–7 (regional_figures.py): a 16-inch-wide canvas scaled to the page
+# width in the manuscript (17.8 cm, factor ≈ 0.44). Font sizes on the canvas are chosen
+# so that all text prints at ≥ 6 pt (PNAS minimum): 14 pt on the canvas ≈ 6.1 pt printed.
 CANVAS_W = 16.0
+FONT = 14               # tick labels, view labels, annotations, axis label, legend
+FONT_TITLE = 16         # panel titles
 PERIOD_OFFSET = {"SNI92": -0.29, "SNI02": 0.0, "SNI07": 0.29}
 DENSITY_OFFSET = {"opportunity": -0.07, "view": 0.07}
-FIG_H = 6.6             # inches on the 16-inch canvas (≈ 7.3 cm at page width)
+FIG_H = 7.0             # inches on the 16-inch canvas (≈ 7.8 cm at page width)
 
 
 def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
@@ -108,7 +110,7 @@ def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
                 if row.empty:   # e.g. no input–output source exists for SNI92
                     ax.text(0.02, y + PERIOD_OFFSET[period], f"no {period} data",
                             transform=ax.get_yaxis_transform(), ha="left", va="center",
-                            fontsize=8, color=color, style="italic")
+                            fontsize=FONT, color=color, style="italic")
                     continue
                 row = row.iloc[0]
                 for name, marker in [("opportunity", "o"), ("view", "s")]:
@@ -119,7 +121,8 @@ def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
                                 capsize=2.5, capthick=1.4, mew=1.4,
                                 mfc=color if name == "opportunity" else "white", zorder=3)
         ax.axvline(0, color="black", lw=0.8, zorder=1)
-        ax.set_title(outcomes[outcome])
+        ax.set_title(outcomes[outcome], fontsize=FONT_TITLE)
+        ax.tick_params(axis="both", labelsize=FONT)
         ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
         ax.xaxis.grid(True, linestyle="--", alpha=0.4)
         ax.set_axisbelow(True)
@@ -128,14 +131,14 @@ def plot_outcomes(outcomes: dict[str, str], out: Path) -> None:
     axes[0, 0].set_yticks(range(len(view_keys)))
     axes[0, 0].set_yticklabels([VIEW_LABELS_2L[v] for v in view_keys])
     fig.supxlabel("Coefficient per one-standard-deviation increase in density "
-                  "(percentage points), 95% CI", fontsize=10, y=0.1)
+                  "(percentage points), 95% CI", fontsize=FONT, y=0.088)
     handles = [Line2D([], [], color=c, marker="o", ls="", ms=6, label=p) for p, c in PERIODS.items()]
     handles += [
         Line2D([], [], color="#555555", marker="o", ls="", ms=6, label="Opportunity density"),
         Line2D([], [], color="#555555", marker="s", mfc="white", ls="", ms=5.5, mew=1.4,
                label="Relational-view density"),
     ]
-    fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=10,
+    fig.legend(handles=handles, loc="lower center", ncol=5, frameon=False, fontsize=FONT,
                bbox_to_anchor=(0.5, 0.0), handletextpad=0.3, columnspacing=2.0)
     fig.tight_layout(rect=(0, 0.72 / fig.get_figheight(), 1, 1), w_pad=1.0)
     out.parent.mkdir(parents=True, exist_ok=True)
