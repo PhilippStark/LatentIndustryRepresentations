@@ -1,0 +1,33 @@
+{
+  "labor_relatedness": {
+    "rows_reference": 115436,
+    "rows_published": 115436,
+    "same_pairs": true,
+    "phi_max_rel_diff": 2.2823172272605462e-14
+  },
+  "ownership_relatedness": {
+    "rows_reference": 15912,
+    "rows_published": 15912,
+    "same_pairs": true,
+    "phi_max_rel_diff": 0.0
+  },
+  "layers_layers_v1.npz": {
+    "max_abs_diff": 0.0,
+    "mismatched_keys": []
+  },
+  "layer_diffusion_expanded_layers_v1.npz": {
+    "max_abs_diff": 0.0,
+    "mismatched_keys": []
+  },
+  "patched_vs_repo_trainer_bitwise": true,
+  "seed42_vs_seed43_cos": {
+    "max_abs_diff": 0.6158935008570552,
+    "mean_abs_diff": 0.0174733809213579
+  },
+  "reference_vs_published_v16_cos": {
+    "max_abs_diff": 0.23547446727752686,
+    "mean_abs_diff": 0.011958556105164268
+  },
+  "failures": [],
+  "warnings": []
+}

@@ -1,0 +1,18 @@
+\begin{table}
+\caption{Seed stability: evaluation metrics of the shared geometry across training runs.}
+\label{tab:seed_stability_geometry}
+\begin{tabular}{lllll}
+\toprule
+Metric & σ & v16 & v16 retrained & Seeds (n=10), mean ± SD \\
+\midrule
+Hierarchy: tree-distance ρ & 0.500000 & 0.3721 & 0.3732 & 0.3741 ± 0.0021 \\
+Retrieval R@1, SNI92 → SNI02 & 0.500000 & 0.8832 & 0.8931 & 0.8895 ± 0.0062 \\
+Retrieval MRR, SNI02 → SNI07 & 0.500000 & 0.8126 & 0.8082 & 0.8121 ± 0.0066 \\
+Retrieval R@1, SNI02 → SNI07 & 0.500000 & 0.7179 & 0.7101 & 0.7150 ± 0.0120 \\
+Ownership consistency ρ (SNI07) & 0.500000 & 0.6936 & 0.6941 & 0.6942 ± 0.0029 \\
+Labor consistency ρ (SNI07) & 0.500000 & 0.5621 & 0.5651 & 0.5645 ± 0.0032 \\
+Section silhouette (SNI07) & 0.500000 & -0.0461 & -0.0459 & -0.0456 ± 0.0011 \\
+IO consistency ρ & 0.500000 & 0.9110 & 0.9106 & 0.9105 ± 0.0004 \\
+\bottomrule
+\end{tabular}
+\end{table}

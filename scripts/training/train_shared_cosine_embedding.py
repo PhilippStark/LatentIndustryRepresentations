@@ -21,6 +21,11 @@ Model
 - Z is initialised from a sentence-transformer encoding of each node's SCB
   description (--text-prior-model), reduced to --embedding-dim by PCA and
   re-normalised; no loss term ties Z to this initialisation afterwards.
+  Training is full-batch from this deterministic start, so --seed alone
+  changes (almost) nothing; --init-noise SIGMA perturbs the start,
+  Z0 <- normalize(Z0 + SIGMA * eps) with eps ~ N(0, I/d) drawn from --seed,
+  so that cos(Z0, Z0') ~ 1/sqrt(1 + SIGMA^2) (seed-stability runs; off by
+  default).
 - --saturation-frac stops gradients from a target once its loss falls below
   that fraction of its null loss. Each target's weight is also rescaled by
   its epoch-1 loss divided by a running average of its current loss, so solved
@@ -101,6 +106,9 @@ parser.add_argument("--eval-every", type=int, default=25,
                           "{run_dir}/loss_metric_correlation.csv. Loss and metric should move "
                           "in opposite directions (negative correlation).")
 parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--init-noise", type=float, default=0.0,
+                     help="SIGMA: perturb the text-prior start, Z0 <- normalize(Z0 + SIGMA * eps), "
+                          "eps ~ N(0, I/d) from --seed (seed-stability runs). 0.0 (default) = off.")
 for _lname, _default in DEFAULT_LAMBDAS.items():
     parser.add_argument(f"--lambda-{_lname}", type=float, default=_default, dest=f"lambda_{_lname}",
                          help=f"This view's total weight in the joint loss (default {_default}), "
@@ -179,6 +187,13 @@ if args.embedding_dim != text_prior_dim:
     print(f"  PCA: {text_prior_dim}d -> {args.embedding_dim}d "
           f"({pca.explained_variance_ratio_.sum():.1%} of variance retained), "
           f"re-normalised to unit norm")
+if args.init_noise > 0:
+    eps = np.random.default_rng(args.seed).standard_normal(init_vecs.shape) / np.sqrt(init_vecs.shape[1])
+    noisy = init_vecs + args.init_noise * eps
+    noisy = noisy / np.linalg.norm(noisy, axis=1, keepdims=True)
+    mean_cos = float((noisy * init_vecs).sum(axis=1).mean() / np.linalg.norm(init_vecs, axis=1).mean())
+    print(f"  --init-noise {args.init_noise}: seed {args.seed}, mean cos(Z0, Z0') = {mean_cos:.4f}")
+    init_vecs = noisy
 Z = torch.nn.Parameter(torch.tensor(init_vecs, dtype=torch.float32, device=device))
 del text_prior_model
 observation_models = {target_id: CosineObservationModel().to(device) for target_id in operator_data.targets}
@@ -239,6 +254,7 @@ training_provenance = {
     "graph_name": args.name,
     "embedding_dim": args.embedding_dim,
     "seed": args.seed,
+    "init_noise": args.init_noise,
     "learning_rate": args.lr,
     "epochs": args.epochs,
     "loss_types_by_family": loss_types_by_family,

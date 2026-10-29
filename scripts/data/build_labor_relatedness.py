@@ -41,6 +41,13 @@ A pair is kept only if at least --min-labor-count workers moved between the
 two industries (both directions, pooled over the period); default 10, as in
 the main run.
 
+Spatial hold-out
+----------------
+--exclude-municipalities FILE drops every person-year whose (harmonised)
+workplace municipality is listed in FILE before any flow or covariate is
+computed (scripts/data/_municipality_exclusion.py), so no flow that starts
+or ends there enters the relatedness. Off by default.
+
 Output
 ------
   <LATENT_DATA_ROOT>/processed/labor_relatedness.parquet
@@ -92,6 +99,12 @@ parser.add_argument(
          "for a pair to be kept at all. "
          "Raising this keeps only higher-evidence pairs (fewer, more confident edges).",
 )
+parser.add_argument(
+    "--exclude-municipalities",
+    default=None,
+    help="CSV with a `municipality` column (harmonised codes): person-years working "
+         "there are dropped before any flow is counted (spatial hold-out). Off by default.",
+)
 args, _ = parser.parse_known_args()
 if args.max_year < 1991:
     raise ValueError("--max-year must permit at least one adjacent-year transition")
@@ -131,6 +144,18 @@ UNIVERSE_FILE_TAG = {"SNI92": "1992", "SNI02": "2002", "SNI07": "2007"}
 print(f"Loading individual data from {INDIVID_PATH} …")
 raw = pl.read_parquet(INDIVID_PATH)
 raw = raw.filter(pl.col("Year") <= args.max_year)
+
+exclusion_stats = None
+if args.exclude_municipalities:
+    from _municipality_exclusion import drop_excluded_municipalities, load_excluded_municipalities
+
+    raw, exclusion_stats = drop_excluded_municipalities(
+        raw, load_excluded_municipalities(args.exclude_municipalities)
+    )
+    exclusion_stats["file"] = str(Path(args.exclude_municipalities).resolve())
+    print(f"  --exclude-municipalities: {exclusion_stats['n_excluded_municipalities']} municipalities, "
+          f"{exclusion_stats['rows_dropped']:,} of {exclusion_stats['rows_before']:,} person-years dropped "
+          f"({exclusion_stats['rows_unmapped_kept']:,} unmapped kept)")
 
 if "Sni" not in raw.columns:
     raise ValueError("Expected column 'Sni' in individual data.")
@@ -305,23 +330,20 @@ result = pd.concat(phi_frames, ignore_index=True)
 
 result.to_parquet(output_path, index=False)
 metadata_path = output_path.with_suffix(".metadata.json")
-metadata_path.write_text(
-    json.dumps(
-        {
-            "max_year": args.max_year,
-            "regime_years": {
-                coding: [min(years), max(years)] if len(years) else None
-                for coding, years in REGIME_YEARS.items()
-            },
-            "min_labor_count": MIN_LABOR_COUNT,
-            "shrinkage_k": SHRINKAGE_K,
-            "rows": len(result),
-            "output": str(output_path),
-        },
-        indent=2,
-    ),
-    encoding="utf-8",
-)
+metadata = {
+    "max_year": args.max_year,
+    "regime_years": {
+        coding: [min(years), max(years)] if len(years) else None
+        for coding, years in REGIME_YEARS.items()
+    },
+    "min_labor_count": MIN_LABOR_COUNT,
+    "shrinkage_k": SHRINKAGE_K,
+    "rows": len(result),
+    "output": str(output_path),
+}
+if exclusion_stats is not None:
+    metadata["exclude_municipalities"] = exclusion_stats
+metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 print(f"\nSaved {len(result):,} pairs → {output_path}")
 print(f"Metadata → {metadata_path}")
 print("Done.")

@@ -1,0 +1,19 @@
+\begin{table}
+\caption{Spatial hold-out: density effects with each municipality's density built from an embedding trained without that municipality's labor flows and ownership links (municipality×year and industry×fold fixed effects).}
+\label{tab:holdout_spatial_crossfit}
+\begin{tabular}{lllllll}
+\toprule
+Outcome & Period & v16 & v16 retrained & v16, industry×fold FE & Cross-fitted & Range over 3 fold draws \\
+\midrule
+entry & SNI92 & +6.051 (0.796) & +6.071 (0.798) & +6.025 (0.739) & +5.440 (0.746) & [+5.266, +5.440] \\
+entry & SNI02 & +6.162 (1.135) & +5.966 (1.131) & +6.147 (1.127) & +5.059 (1.176) & [+4.955, +5.059] \\
+entry & SNI07 & +5.304 (0.902) & +5.311 (0.903) & +5.329 (0.892) & +4.040 (0.924) & [+4.040, +4.157] \\
+exit & SNI92 & -13.769 (1.056) & -13.804 (1.059) & -13.928 (1.080) & -13.952 (1.078) & [-13.952, -13.661] \\
+exit & SNI02 & -8.906 (0.779) & -8.943 (0.782) & -8.998 (0.789) & -9.148 (0.792) & [-9.148, -8.930] \\
+exit & SNI07 & -11.836 (0.839) & -11.840 (0.844) & -11.890 (0.840) & -12.152 (0.857) & [-12.152, -11.864] \\
+startup\_entry & SNI92 & +1.053 (0.118) & +1.056 (0.119) & +1.051 (0.116) & +0.971 (0.113) & [+0.943, +0.971] \\
+startup\_entry & SNI02 & +1.171 (0.319) & +1.150 (0.319) & +1.128 (0.320) & +0.995 (0.337) & [+0.947, +0.995] \\
+startup\_entry & SNI07 & +1.720 (0.296) & +1.719 (0.296) & +1.720 (0.295) & +1.402 (0.297) & [+1.397, +1.423] \\
+\bottomrule
+\end{tabular}
+\end{table}

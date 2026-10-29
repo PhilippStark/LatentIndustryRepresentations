@@ -17,6 +17,13 @@ and pairs with fewer than MIN_OWNERSHIP_COUNT (3) co-occurrences are dropped.
 Relatedness is the symmetric flow-strength measure
 latent_industry.common.flow_metrics.symmetric_flow_phi.
 
+Spatial hold-out
+----------------
+--exclude-municipalities FILE drops every person-year whose (harmonised)
+workplace municipality is listed in FILE before the co-occurrence step
+(scripts/data/_municipality_exclusion.py), so employees there do not enter
+any OrgNr's code set. Off by default.
+
 Outputs (<LATENT_DATA_ROOT>/processed/)
 ---------------------------------------
   ownership_relatedness.parquet    sni_from, sni_to, phi, coding (one row per
@@ -53,6 +60,10 @@ parser.add_argument("--max-year", type=int, default=2019,
                      help="Last register year allowed.")
 parser.add_argument("--output-file", default="ownership_relatedness.parquet",
                      help="Absolute path or filename under PROCESSED_DATA_DIR.")
+parser.add_argument("--exclude-municipalities", default=None,
+                     help="CSV with a `municipality` column (harmonised codes): person-years "
+                          "working there are dropped before co-occurrence is counted (spatial "
+                          "hold-out). Off by default.")
 args, _ = parser.parse_known_args()
 if args.max_year < 1991:
     raise ValueError("--max-year must permit at least one within-regime year")
@@ -86,7 +97,22 @@ REGIME_YEARS = {
 YEAR_TO_REGIME = {y: ver for ver, years in REGIME_YEARS.items() for y in years}
 
 print(f"Loading individual data from {INDIVID_PATH} …")
-raw = pl.read_parquet(INDIVID_PATH, columns=["Year", "OrgNr", "Sni"])
+exclusion_stats = None
+if args.exclude_municipalities:
+    from _municipality_exclusion import drop_excluded_municipalities, load_excluded_municipalities
+
+    raw = pl.read_parquet(INDIVID_PATH, columns=["Year", "OrgNr", "Sni", "WorkplaceMunicipality"])
+    raw, exclusion_stats = drop_excluded_municipalities(
+        raw.filter(pl.col("Year") <= args.max_year),
+        load_excluded_municipalities(args.exclude_municipalities),
+    )
+    raw = raw.drop("WorkplaceMunicipality")
+    exclusion_stats["file"] = str(Path(args.exclude_municipalities).resolve())
+    print(f"  --exclude-municipalities: {exclusion_stats['n_excluded_municipalities']} municipalities, "
+          f"{exclusion_stats['rows_dropped']:,} of {exclusion_stats['rows_before']:,} person-years dropped "
+          f"({exclusion_stats['rows_unmapped_kept']:,} unmapped kept)")
+else:
+    raw = pl.read_parquet(INDIVID_PATH, columns=["Year", "OrgNr", "Sni"])
 raw = raw.filter(
     (pl.col("Year") <= args.max_year)
     & pl.col("Sni").is_not_null() & (pl.col("Sni") != 0)
@@ -169,23 +195,20 @@ result = pd.concat(phi_frames, ignore_index=True) if phi_frames else pd.DataFram
 result.to_parquet(output_path, index=False)
 
 metadata_path = output_path.with_suffix(".metadata.json")
-metadata_path.write_text(
-    json.dumps(
-        {
-            "max_year": args.max_year,
-            "regime_years": {
-                coding: [min(years), max(years)] if len(years) else None
-                for coding, years in REGIME_YEARS.items()
-            },
-            "min_ownership_count": MIN_OWNERSHIP_COUNT,
-            "max_codes_per_org": MAX_CODES_PER_ORG,
-            "rows": len(result),
-            "output": str(output_path),
-        },
-        indent=2,
-    ),
-    encoding="utf-8",
-)
+metadata = {
+    "max_year": args.max_year,
+    "regime_years": {
+        coding: [min(years), max(years)] if len(years) else None
+        for coding, years in REGIME_YEARS.items()
+    },
+    "min_ownership_count": MIN_OWNERSHIP_COUNT,
+    "max_codes_per_org": MAX_CODES_PER_ORG,
+    "rows": len(result),
+    "output": str(output_path),
+}
+if exclusion_stats is not None:
+    metadata["exclude_municipalities"] = exclusion_stats
+metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 print(f"\nSaved {len(result):,} pairs → {output_path}")
 print(f"Metadata → {metadata_path}")
 print("Done.")

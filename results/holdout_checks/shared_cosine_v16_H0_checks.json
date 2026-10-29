@@ -1,0 +1,25 @@
+{
+  "municipalities": 290,
+  "entry": {
+    "density_max_abs_diff": 1.4765047573472856e-08,
+    "density_missing": 0,
+    "h1_outcome_mismatches": 0,
+    "coef_max_rel_diff": 1.4389915946935637e-15,
+    "se_max_rel_diff": 7.501264874869103e-15
+  },
+  "exit": {
+    "density_max_abs_diff": 1.434446772474729e-08,
+    "density_missing": 0,
+    "h1_outcome_mismatches": 0,
+    "coef_max_rel_diff": 4.031464838372354e-16,
+    "se_max_rel_diff": 1.2025085932675144e-14
+  },
+  "startup_entry": {
+    "density_max_abs_diff": 1.4765047573472856e-08,
+    "density_missing": 0,
+    "h1_outcome_mismatches": null,
+    "coef_max_rel_diff": 3.2937710499182694e-15,
+    "se_max_rel_diff": 3.168095926426325e-14
+  },
+  "failures": []
+}

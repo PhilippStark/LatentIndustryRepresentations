@@ -82,3 +82,16 @@ text prior Z actually started from.
 density, each script's default), `P05_opportunity_space.py`,
 `R01_single_source_density.py` and `R02_fixed_effects_robustness.py`. Growth
 and wage growth are appendix-only.
+
+## Robustness
+
+- `R02_fixed_effects_robustness.py`: alternative fixed effects
+  (`regional_fe_robustness/`).
+- `scripts/robustness/` (details in its README): spatial hold-out (5 folds × 3
+  repeats, labor and ownership rebuilt without the test municipalities;
+  `regional_spatial_holdout/`), temporal hold-out (embeddings trained on
+  register years ≤ T0 = 2015–2018, test rows and forecast horizon;
+  `regional_temporal_holdout/`), and seed stability (10 seeds, `--init-noise
+  0.5`; `seed_stability/`). Checks of the pipeline in `holdout_checks/`, SI
+  tables in `paper/appendix/holdout_*` and `paper/appendix/seed_stability_*`.
+  The variant embeddings stay on LUNARC (`ablations/holdout_robustness/`).

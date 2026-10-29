@@ -33,6 +33,10 @@ python scripts/regional/P04_entry.py      # likewise P04_exit.py, P04_startup_en
 python scripts/regional/P05_opportunity_space.py
 python scripts/regional/R01_single_source_density.py --run-name shared_cosine_v16
 python scripts/regional/R02_fixed_effects_robustness.py
+
+# 6. Hold-out and seed robustness (SI; retrains on restricted data, see scripts/robustness/README.md)
+python scripts/robustness/H3_evaluate_spatial.py      # likewise H4_evaluate_temporal.py, H5_evaluate_seeds.py
+python scripts/robustness/H9_si_tables.py
 ```
 
 Steps 2–4 run on the released files in `data/` without access to the restricted data.
@@ -40,6 +44,6 @@ Steps 2–4 run on the released files in `data/` without access to the restricte
 | Folder | Content |
 |---|---|
 | `src/latent_industry/` | Shared code: SNI codes and municipalities (`common/`), industry graph and diffusion targets (`graph/`), embedding model and training (`training/`), regional densities and fixed-effects estimation (`regional/`) |
-| `scripts/` | Entry points, in pipeline order as above; `scripts/paper/` builds the paper's figures and tables |
+| `scripts/` | Entry points, in pipeline order as above; `scripts/paper/` builds the paper's figures and tables; `scripts/robustness/` holds the spatial/temporal hold-out and seed-stability checks ([README](scripts/robustness/README.md)) |
 | `metadata/` | SNI code descriptions, version crosswalks, municipality tables |
-| `results/` | Evaluation output, regional estimates, and the paper's figures and tables (`results/paper/`) |
+| `results/` | Evaluation output, regional estimates and robustness checks (`regional_fe_robustness/`, `regional_spatial_holdout/`, `regional_temporal_holdout/`, `seed_stability/`, `holdout_checks/`), and the paper's figures and tables (`results/paper/`) |
