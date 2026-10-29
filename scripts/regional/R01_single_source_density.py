@@ -79,7 +79,6 @@ OUT_DIR = LUNARC_DATA_ROOT / "robustness" / "single_source_density"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_RUN_NAME = "shared_cosine_v16"
-DEFAULT_SD_MULT  = 2.0
 SAMPLE_START_YEAR = 1990
 
 # Grillitsch (2021) startup identification — identical defaults/logic to
@@ -111,7 +110,6 @@ parser.add_argument("--spec", default="main", choices=["main", "additive", "muni
 parser.add_argument("--graph-name", default="layers_v1",
                      help="Graph whose training-input matrices (layers_{name}.npz) give the "
                           "labor and ownership sources.")
-parser.add_argument("--sd-mult", type=float, default=DEFAULT_SD_MULT)
 parser.add_argument("--max-founder-size", type=int, default=DEFAULT_MAX_FOUNDER_SIZE)
 parser.add_argument("--max-growth-ratio", type=float, default=DEFAULT_MAX_GROWTH_RATIO)
 parser.add_argument("--seed", type=int, default=42,
@@ -119,7 +117,7 @@ parser.add_argument("--seed", type=int, default=42,
                           "same one that run's own Z actually started from.")
 args = parser.parse_args()
 
-print(f"Run to compare against: {args.run_name}   sd_mult={args.sd_mult}   "
+print(f"Run to compare against: {args.run_name}   "
       f"max_founder_size<={args.max_founder_size}   max_growth_ratio={args.max_growth_ratio}")
 
 
@@ -415,37 +413,6 @@ VIEWS = [name for name in SOURCES if name != "opportunity"]
 #    (latent_industry.regional.fixed_effects).
 # ═══════════════════════════════════════════════════════════════════════════
 
-def significance_band(arcsinh_vals: np.ndarray, active_mask: np.ndarray, sd_mult: float):
-    n_rows = arcsinh_vals.shape[0]
-    sig_lo, sig_hi = np.full(n_rows, np.nan), np.full(n_rows, np.nan)
-    for row in range(n_rows):
-        active = active_mask[row]
-        if active.sum() < 2:
-            continue
-        vals = arcsinh_vals[row, active]
-        mu, sd = float(vals.mean()), float(vals.std())
-        if sd == 0:
-            continue
-        sig_lo[row] = mu - sd_mult * sd
-        sig_hi[row] = mu + sd_mult * sd
-    return sig_lo, sig_hi
-
-
-def entry_outcome(M_t, M_t1, sd_mult):
-    arcsinh_t1 = np.arcsinh(M_t1)
-    active1 = M_t1 > 0
-    sig_lo, sig_hi = significance_band(arcsinh_t1, active1, sd_mult)
-    return (M_t1 > 0) & (arcsinh_t1 >= sig_lo[:, None]) & (arcsinh_t1 <= sig_hi[:, None])
-
-
-def exit_outcome(M_t, M_t1, sd_mult):
-    arcsinh_t = np.arcsinh(M_t)
-    active0 = M_t > 0
-    sig_lo, sig_hi = significance_band(arcsinh_t, active0, sd_mult)
-    within_band = (arcsinh_t >= sig_lo[:, None]) & (arcsinh_t <= sig_hi[:, None])
-    return (M_t > 0) & (M_t1 == 0) & within_band
-
-
 WAGE_MIN_WORKERS = 5   # as P04_wage_growth.py: more than 5 workers in both years
 
 
@@ -466,9 +433,9 @@ def wage_growth_outcome(c: dict) -> np.ndarray:
 # bool matrix, or "merge" for start-ups (lookup in startup_counts).
 OUTCOME_SPECS = {
     "entry": {"candidate": lambda M_t, M_t1: M_t == 0, "col": "entry_industry",
-              "outcome": lambda c: entry_outcome(c["M_t"], c["M_t1"], args.sd_mult)},
+              "outcome": lambda c: c["M_t1"] > 0},
     "exit": {"candidate": lambda M_t, M_t1: M_t > 0, "col": "exit_industry",
-             "outcome": lambda c: exit_outcome(c["M_t"], c["M_t1"], args.sd_mult)},
+             "outcome": lambda c: c["M_t1"] == 0},
     "startup_entry": {"candidate": lambda M_t, M_t1: M_t == 0, "col": "startup_entry", "outcome": "merge"},
     "growth": {"candidate": lambda M_t, M_t1: (M_t + M_t1) > 0, "col": "growth_binary",
                "outcome": growth_outcome},

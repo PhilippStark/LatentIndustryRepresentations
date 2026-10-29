@@ -46,8 +46,8 @@ SNI92/SNI02/SNI07 classification periods).
 
 | Folder | Outcome column | Definition |
 |---|---|---|
-| `entry/` | `entry_industry` | Candidates: industries with zero employment in the municipality at *t*. 1 if employment reaches a non-negligible level at *t*+1 |
-| `exit/` | `exit_industry` | Candidates: industries present in the municipality at *t*. 1 if employment drops to zero by *t*+1 |
+| `entry/` | `entry_industry` | Candidates: industries with zero employment in the municipality at *t*. 1 if employment is positive at *t*+1 |
+| `exit/` | `exit_industry` | Candidates: industries present in the municipality at *t*. 1 if employment is zero at *t*+1 |
 | `startup_entry/` | `startup_entry` | Same candidates as `entry/`. 1 if a genuinely new firm (SCB firm-demography definition, following Grillitsch 2021) is founded in the cell at *t*+1 |
 
 Each panel has the columns `period`, `year`, `municipality`, `industry`,

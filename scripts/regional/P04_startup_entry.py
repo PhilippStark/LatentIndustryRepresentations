@@ -117,7 +117,6 @@ DEFAULT_RUN_NAME         = "shared_cosine_v16"
 DEFAULT_TAU              = 1.0    # softmax temperature for the relatedness-density kernel
 DEFAULT_MAX_FOUNDER_SIZE = 10     # Grillitsch (2021): founder size <= 10 employees
 DEFAULT_MAX_GROWTH_RATIO = 0.0    # 0 disables the optional >30x jump-exclusion robustness check
-DEFAULT_SD_MULT          = 2.0    # significance band (arcsinh scale); only used with --include-entry-industry
 SAMPLE_START_YEAR        = 1990   # can't verify "absent in t-1" for this year — no 1989 data in the panel
 
 OUTCOME       = "startup_entry"
@@ -158,9 +157,6 @@ parser.add_argument("--max-founder-size", type=int, default=DEFAULT_MAX_FOUNDER_
 parser.add_argument("--max-growth-ratio", type=float, default=DEFAULT_MAX_GROWTH_RATIO,
                     help="Optional robustness filter: exclude startups whose (t+1 headcount)/(founder "
                          "size) ratio exceeds this multiple. 0 disables it (default).")
-parser.add_argument("--sd-mult", type=float, default=DEFAULT_SD_MULT,
-                    help="SD multiplier (arcsinh scale) for entry_industry's significance band. "
-                         "Only used together with --include-entry-industry.")
 parser.add_argument("--include-entry-industry", default=False, action="store_true",
                     help="Also report P04_entry.py's crude entry_industry outcome side by side, as a "
                          "reference point only. Off by default.")
@@ -376,32 +372,6 @@ PERIODS = [
 ]
 
 
-def significance_band(arcsinh_vals: np.ndarray, active_mask: np.ndarray, sd_mult: float) -> tuple[np.ndarray, np.ndarray]:
-    n_rows = arcsinh_vals.shape[0]
-    sig_lo = np.full(n_rows, np.nan)
-    sig_hi = np.full(n_rows, np.nan)
-    for row in range(n_rows):
-        active = active_mask[row]
-        if active.sum() < 2:
-            continue
-        vals = arcsinh_vals[row, active]
-        mu, sd = float(vals.mean()), float(vals.std())
-        if sd == 0:
-            continue
-        sig_lo[row] = mu - sd_mult * sd
-        sig_hi[row] = mu + sd_mult * sd
-    return sig_lo, sig_hi
-
-
-def compute_entry_industry_outcome(M_t1: np.ndarray, arcsinh_t1: np.ndarray, sd_mult: float) -> np.ndarray:
-    active1 = M_t1 > 0
-    sig_lo, sig_hi = significance_band(arcsinh_t1, active1, sd_mult)
-    return (
-        (M_t1 > 0)
-        & (arcsinh_t1 >= sig_lo[:, None]) & (arcsinh_t1 <= sig_hi[:, None])
-    )
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. Build the candidate-entry set panel: industries absent at t, density at
 #    t, startup_entry (and optionally entry_industry) outcomes observed at t+1
@@ -444,9 +414,7 @@ for period_name, codes, vecs, year_range in PERIODS:
             "density":      density[mi, ci],
         }
         if args.include_entry_industry:
-            M_t1 = empl_matrix(t1, codes)
-            arcsinh_t1 = np.arcsinh(M_t1)
-            entry_industry = compute_entry_industry_outcome(M_t1, arcsinh_t1, args.sd_mult)
+            entry_industry = empl_matrix(t1, codes) > 0
             row["entry_industry"] = entry_industry[mi, ci]
 
         panel_frames.append(pd.DataFrame(row))

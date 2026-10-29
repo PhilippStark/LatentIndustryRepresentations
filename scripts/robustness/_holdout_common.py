@@ -80,7 +80,6 @@ PERIODS = {
     "SNI02": ("sni02", range(2002, 2006)),
     "SNI07": ("sni07", range(2007, 2019)),
 }
-SD_MULT = 2.0  # P04 default: significance band of the entry/exit outcomes
 
 OUTCOMES = {
     "entry":         {"col": "entry_industry"},
@@ -240,37 +239,14 @@ def check_codes(emb: Embedding, reference: Embedding) -> None:
 
 # ── Outcomes at other horizons (rules of P04_entry.py / P04_exit.py) ──────────
 
-def significance_band(arcsinh_vals: np.ndarray, active_mask: np.ndarray, sd_mult: float):
-    """Per municipality, ±sd_mult SD band (arcsinh scale) across its active
-    industries — copied from P04_entry.py / P04_exit.py."""
-    n_rows = arcsinh_vals.shape[0]
-    sig_lo = np.full(n_rows, np.nan)
-    sig_hi = np.full(n_rows, np.nan)
-    for row in range(n_rows):
-        active = active_mask[row]
-        if active.sum() < 2:
-            continue
-        vals = arcsinh_vals[row, active]
-        mu, sd = float(vals.mean()), float(vals.std())
-        if sd == 0:
-            continue
-        sig_lo[row] = mu - sd_mult * sd
-        sig_hi[row] = mu + sd_mult * sd
-    return sig_lo, sig_hi
+def entry_outcome(M_t1: np.ndarray) -> np.ndarray:
+    """P04_entry.py: positive employment at t1."""
+    return M_t1 > 0
 
 
-def entry_outcome(M_t1: np.ndarray, sd_mult: float = SD_MULT) -> np.ndarray:
-    """P04_entry.compute_entry_outcome: positive at t1 and within the band at t1."""
-    arcsinh_t1 = np.arcsinh(M_t1)
-    sig_lo, sig_hi = significance_band(arcsinh_t1, M_t1 > 0, sd_mult)
-    return (M_t1 > 0) & (arcsinh_t1 >= sig_lo[:, None]) & (arcsinh_t1 <= sig_hi[:, None])
-
-
-def exit_outcome(M_t: np.ndarray, M_t1: np.ndarray, sd_mult: float = SD_MULT) -> np.ndarray:
-    """P04_exit.compute_exit_outcome: within the band at t and zero at t1."""
-    arcsinh_t = np.arcsinh(M_t)
-    sig_lo, sig_hi = significance_band(arcsinh_t, M_t > 0, sd_mult)
-    return (M_t > 0) & (M_t1 == 0) & (arcsinh_t >= sig_lo[:, None]) & (arcsinh_t <= sig_hi[:, None])
+def exit_outcome(M_t: np.ndarray, M_t1: np.ndarray) -> np.ndarray:
+    """P04_exit.py: positive employment at t and zero at t1."""
+    return (M_t > 0) & (M_t1 == 0)
 
 
 # ── Estimation ────────────────────────────────────────────────────────────────

@@ -12,9 +12,7 @@ Candidates and outcome
 Candidates are all (municipality, industry, year t) cells with positive
 employment in t.
 
-  exit_industry = 1 if an industry at a non-negligible local level in t
-                  (within ± --sd-mult SDs, arcsinh scale, of the other active
-                  industries in the municipality) has zero employment in t+1.
+  exit_industry = 1 if the industry has zero employment in t+1.
 
 Density
 -------
@@ -46,7 +44,6 @@ Options
   --stratify-firm-size  splits exit by the size tercile of the closing
                         establishment (more than --min-workers workers and at
                         least --min-worker-ratio of local employment)
-  --sd-mult-sweep       re-runs the regression for several --sd-mult values
   --from-cache          re-estimates and replots from the cached panel (no microdata)
 
 Outputs
@@ -66,7 +63,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
-import matplotlib.pyplot as plt
 
 project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root / "src"))
@@ -100,7 +96,6 @@ DEFAULT_TAU         = 1.0    # softmax temperature for the relatedness-density k
 DEFAULT_MIN_WORKERS = 5      # "more than 5 workers" -> workers > 5
 DEFAULT_MIN_WORKER_RATIO = 0.025  # additional floor: workers / municipality total
                                   # workforce that year; 0.0 disables it
-DEFAULT_SD_MULT     = 2.0    # significance band (arcsinh scale) for exit_industry
 SAMPLE_END_YEAR     = 2019   # establishments last seen this year are NOT counted as
                               # deaths — can't distinguish a true death from a firm
                               # that's still alive at the panel's edge
@@ -145,28 +140,17 @@ parser.add_argument("--min-worker-ratio", type=float, default=DEFAULT_MIN_WORKER
                     help="--stratify-firm-size only: additional floor, closing establishment's "
                          "workers must be >= this fraction of the municipality's total "
                          "workforce that year (e.g. 0.001 = 0.1%%). 0.0 disables this filter.")
-parser.add_argument("--sd-mult", type=float, default=DEFAULT_SD_MULT,
-                    help="SD multiplier (arcsinh scale) defining 'significant' industry presence.")
 parser.add_argument("--stratify-firm-size", default=False, action="store_true",
                     help="Tag each candidate cell with whether a qualifying closing "
                          "establishment of a given size tercile (small/medium/large workers, "
                          "terciles taken over qualifying establishment deaths) triggered it, "
                          "then regress exit_industry_<tier> = exit_industry AND "
                          "has_dead_estab_<tier> against density separately per tier — tests "
-                         "whether density predicts SIGNIFICANT industry exit differently "
+                         "whether density predicts industry exit differently "
                          "depending on closure size. Builds an establishment-level panel "
                          "(slower). Reported separately from the main exit_industry figure, "
                          "as '{run}_exit_industry_firmsize.png' + '{run}_firmsize_summary.csv'. "
                          "Off by default.")
-parser.add_argument("--sd-mult-sweep", default="", type=str,
-                    help="Appendix robustness check: comma-separated sd_mult values to "
-                         "re-run the regression at (e.g. '1.0,1.5,2.0,2.5,3.0,4.0'), reusing "
-                         "the density/employment matrices already computed for the main run "
-                         "— only the outcome's significance band and the regression are "
-                         "redone per value. Empty = skip (default). sd_mult is the main "
-                         "robustness target because it defines the OUTCOME itself (which "
-                         "drops-to-zero count as a 'significant' exit), not just a nuisance "
-                         "control like tau.")
 parser.add_argument("--from-cache", default=False, action="store_true",
                     help="Skip loading the SCB microdata and rerunning the regressions "
                          "entirely — replot the paper figure directly from this run's "
@@ -196,16 +180,11 @@ SUMMARY_EXTRA = {
     "run": args.run_name, "density_var": args.density_var,
     "log_employment_weights": args.log_employment_weights, "tau": args.tau,
     "min_workers": args.min_workers, "min_worker_ratio": args.min_worker_ratio,
-    "sd_mult": args.sd_mult,
 }
 
 print(f"Run: {args.run_name}   density_var={args.density_var}   tau={args.tau}   "
       f"min_workers>{args.min_workers}   min_worker_ratio>={args.min_worker_ratio:.4%}   "
-      f"sd_mult={args.sd_mult}   stratify_firm_size={args.stratify_firm_size}")
-
-SD_MULT_SWEEP = [float(x) for x in args.sd_mult_sweep.split(",") if x.strip()] if args.sd_mult_sweep else []
-if SD_MULT_SWEEP:
-    print(f"  sd_mult robustness sweep requested: {SD_MULT_SWEEP}")
+      f"stratify_firm_size={args.stratify_firm_size}")
 
 
 if args.from_cache:
@@ -357,44 +336,6 @@ PERIODS = [
 ]
 
 
-def significance_band(arcsinh_vals: np.ndarray, active_mask: np.ndarray, sd_mult: float) -> tuple[np.ndarray, np.ndarray]:
-    """Per-row (municipality) ±sd_mult SD band, arcsinh scale, across that row's
-    active industries — the local yardstick for 'non-negligible' presence."""
-    n_rows = arcsinh_vals.shape[0]
-    sig_lo = np.full(n_rows, np.nan)
-    sig_hi = np.full(n_rows, np.nan)
-    for row in range(n_rows):
-        active = active_mask[row]
-        if active.sum() < 2:
-            continue
-        vals = arcsinh_vals[row, active]
-        mu, sd = float(vals.mean()), float(vals.std())
-        if sd == 0:
-            continue
-        sig_lo[row] = mu - sd_mult * sd
-        sig_hi[row] = mu + sd_mult * sd
-    return sig_lo, sig_hi
-
-
-def compute_exit_outcome(M_t: np.ndarray, M_t1: np.ndarray, arcsinh_t: np.ndarray, sd_mult: float) -> np.ndarray:
-    """exit_industry: present at t, gone at t1, and already 'significant' at t
-    (within ±sd_mult SDs, arcsinh scale, of the OTHER active industries in that
-    municipality at t). sd_mult is the main robustness target (--sd-mult-sweep)
-    since it defines the outcome itself, not just how the regressor is built."""
-    active_t = M_t > 0
-    sig_lo, sig_hi = significance_band(arcsinh_t, active_t, sd_mult)
-    return (
-        (M_t > 0) & (M_t1 == 0)
-        & (arcsinh_t >= sig_lo[:, None]) & (arcsinh_t <= sig_hi[:, None])
-    )
-
-
-# Cache of per-(period, year) matrices for the sd_mult sweep — only populated if
-# requested, since M_t/M_t1/density/arcsinh_t are dense (n_muni × n_codes) arrays
-# and there's no reason to hold them in memory for the default run.
-sweep_cache: list[dict] = []
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 4. Build the candidate-exit set panel: industries present at t, density at
 #    t, exit outcomes observed at t+1
@@ -430,21 +371,8 @@ for period_name, codes, vecs, year_range in PERIODS:
         present = M_t > 0
         mi, ci = np.where(present)
 
-        # exit_industry: the industry must already be at a "significant"
-        # local size at t (arcsinh scale, within ±sd_mult SDs of the OTHER
-        # active industries in that municipality at t) before it can count
-        # as a meaningful exit — mirrors entry_industry's significance band,
-        # but evaluated on the departing side (t) instead of the arriving
-        # side (t1).
-        arcsinh_t = np.arcsinh(M_t)
-        exit_industry = compute_exit_outcome(M_t, M_t1, arcsinh_t, args.sd_mult)
-
-        if SD_MULT_SWEEP:
-            sweep_cache.append({
-                "period": period_name, "t": t, "codes": codes,
-                "M_t": M_t, "M_t1": M_t1, "arcsinh_t": arcsinh_t,
-                "density": density, "mi": mi, "ci": ci,
-            })
+        # exit_industry: zero employment at t1.
+        exit_industry = M_t1 == 0
 
         panel_frames.append(pd.DataFrame({
             "period":        period_name,
@@ -573,96 +501,5 @@ panel_out = panel[["period", "year", "municipality", "industry", "density", OUTC
 panel_out.to_parquet(OUT_DIR / f"{OUT_NAME}_panel.parquet", index=False)
 print(f"  → {OUT_DIR / f'{OUT_NAME}_panel.parquet'}  ({len(panel):,} rows)")
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# 7. Appendix robustness check: sd_mult sweep (only if --sd-mult-sweep given)
-#    sd_mult is the parameter most worth stress-testing here — unlike tau (which
-#    only reweights the density regressor), sd_mult defines the OUTCOME itself
-#    (which drops-to-zero count as a "significant" exit at all), so it directly
-#    determines which rows enter the regression, not just how one predictor is
-#    constructed. density, M_t and M_t1 don't depend on sd_mult, so the sweep
-#    reuses the matrices cached in section 4 and only redoes the (cheap) outcome
-#    recomputation + regression per value — no re-read of the individual
-#    panel and no re-computation of embeddings/kernels.
-# ═══════════════════════════════════════════════════════════════════════════════
-
-if SD_MULT_SWEEP:
-    print("\n" + "=" * 60)
-    print(f"Appendix robustness check: sd_mult sweep {SD_MULT_SWEEP}")
-    print("=" * 60)
-
-    sweep_records: list[dict] = []
-    for sd_mult_val in SD_MULT_SWEEP:
-        frames = []
-        for c in sweep_cache:
-            mi, ci = c["mi"], c["ci"]
-            mask = compute_exit_outcome(c["M_t"], c["M_t1"], c["arcsinh_t"], sd_mult_val)
-            frames.append(pd.DataFrame({
-                "period":        c["period"],
-                "year":          c["t"],
-                "municipality":  [all_municipalities[i] for i in mi],
-                "industry":      [c["codes"][j]         for j in ci],
-                "density_std":   c["density"][mi, ci] / _sd_density,
-                "exit_industry": mask[mi, ci].astype(float),
-            }))
-        sweep_panel = pd.concat(frames, ignore_index=True)
-
-        for period_name in periods_order:
-            sub  = sweep_panel[sweep_panel["period"] == period_name]
-            res = density_effect(sub, "exit_industry")
-            rate, pct_of_baseline = res["rate"], res["pct_of_baseline"]
-            sweep_records.append({
-                "run": args.run_name, "density_var": args.density_var,
-                "period": period_name, "sd_mult": sd_mult_val,
-                "n_obs": res["n"], "exit_industry_rate": rate,
-                "coef": res["coef"], "se": res["se"], "pval": res["pval"],
-                "ci_low": res["ci_low"], "ci_high": res["ci_high"],
-                "partial_r": res["partial_r"], "pct_of_baseline": pct_of_baseline,
-            })
-            print(f"  sd_mult={sd_mult_val:<4}  {period_name}:  rate={rate:.4%}  "
-                  f"coef={res['coef']:+.6f}  pct_of_baseline={pct_of_baseline:+6.1f}%  "
-                  f"p={res['pval']:.2e}  N={res['n']:,}")
-
-    sweep_df = pd.DataFrame(sweep_records)
-    sweep_csv_path = results_dir / f"{OUT_NAME}_sdmult_robustness.csv"
-    sweep_df.to_csv(sweep_csv_path, index=False)
-    print(f"\n  → {sweep_csv_path}")
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
-
-    ax = axes[0]
-    for period_name in periods_order:
-        sub = sweep_df[sweep_df["period"] == period_name].sort_values("sd_mult")
-        ax.fill_between(sub["sd_mult"], sub["ci_low"], sub["ci_high"], alpha=0.15)
-        ax.plot(sub["sd_mult"], sub["coef"], "o-", label=period_name)
-    ax.axvline(args.sd_mult, color="black", linewidth=1, linestyle=":",
-               label=f"baseline (sd_mult={args.sd_mult})")
-    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel("sd_mult  (significance-band width, arcsinh SDs)")
-    ax.set_ylabel("β  (P(exit) per 1-SD density)")
-    ax.set_title("Coefficient vs sd_mult")
-    ax.legend(fontsize=8)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.4)
-    ax.set_axisbelow(True)
-
-    ax = axes[1]
-    for period_name in periods_order:
-        sub = sweep_df[sweep_df["period"] == period_name].sort_values("sd_mult")
-        ax.plot(sub["sd_mult"], sub["pct_of_baseline"], "o-", label=period_name)
-    ax.axvline(args.sd_mult, color="black", linewidth=1, linestyle=":")
-    ax.axhline(0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel("sd_mult  (significance-band width, arcsinh SDs)")
-    ax.set_ylabel("β as % of that sd_mult's baseline exit rate")
-    ax.set_title("Relative effect size vs sd_mult")
-    ax.legend(fontsize=8)
-    ax.yaxis.grid(True, linestyle="--", alpha=0.4)
-    ax.set_axisbelow(True)
-
-    plt.suptitle(f"Appendix robustness: sd_mult sweep  (run={OUT_NAME})", fontsize=13, y=1.03)
-    plt.tight_layout()
-    sweep_fig_path = results_dir / f"{OUT_NAME}_sdmult_robustness.png"
-    fig.savefig(sweep_fig_path, dpi=150, bbox_inches="tight")
-    print(f"  → {sweep_fig_path}")
-    plt.close()
 
 print("\nDone.")
