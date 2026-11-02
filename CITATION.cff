@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite it as below."
+type: software
+title: "Multi-View Representation Learning for Regional Opportunity Spaces and Industrial Path Development: code and data"
+version: 1.0.0
+date-released: 2026-11-02
+license: MIT
+repository-code: "https://github.com/PhilippStark/LatentIndustryRepresentations"
+authors:
+  - family-names: Stark
+    given-names: Philipp
+    email: philipp.stark@keg.lu.se
+    affiliation: "Department of Human Geography and CIRCLE, Lund University"
+  - family-names: Sopasakis
+    given-names: Alexandros
+    affiliation: "Centre for Mathematical Sciences, Lund University"
+  - family-names: Hall
+    given-names: Ola
+    affiliation: "Department of Human Geography, Lund University"
+  - family-names: Grillitsch
+    given-names: Markus
+    affiliation: "Department of Human Geography and CIRCLE, Lund University"

@@ -1,9 +1,10 @@
 # Data
 
 Data supporting the analyses in the paper: the learned industry embeddings,
-the matrices representing the relational views, and the evaluation datasets.
+the matrices representing the relational sources, and the evaluation datasets.
 All files belong to the paper's main run, `shared_cosine_v16` (graph
-`layers_v1`; see `results/shared_cosine_v16_SPECS.md`).
+`layers_v1`; full configuration in
+`embedding/shared_cosine_v16/training_provenance.json`).
 
 The layout mirrors the project's data root (`embedding/`, `processed/`), so
 the code reads these files directly when pointed at this folder:
@@ -27,16 +28,16 @@ Training is deterministic on a given machine but not bitwise across
 machines; a retrain on other hardware differs slightly (evaluation metrics
 within ±0.012). The paper's results use the embeddings released here.
 
-### Relational views — `processed/`
+### Relational sources — `processed/`
 
 | File | Content |
 |---|---|
-| `layers_layers_v1.npz` | Row-stochastic transition matrices of the relational views over the shared 2,614-node graph (4-digit codes of SNI92/02/07 plus their 3-digit, 2-digit and section hubs; node order as in `src/latent_industry/graph/nodes.py`). Per view `<v>`: `<v>__P` (2614 × 2614) and `<v>__domain`. Views: labor, ownership, io, hierarchy, transition_SNI92_SNI02, transition_SNI02_SNI07. |
-| `layer_diffusion_expanded_layers_v1.npz` | The 17 multi-scale diffusion targets the v16 embedding is trained on (`<view>_t<scale>__P`, 2614 × 2614, with `__domain`; target list in `target_ids`, view of each target in `families_json`). |
-| `labor_relatedness.parquet` | Labor-flow relatedness between 4-digit industries (`sni_from`, `sni_to`, `phi`, `coding`). Industry pairs with fewer than 10 pooled job movers are excluded. |
-| `ownership_relatedness.parquet` (+ `.metadata.json`) | Ownership (corporate group) relatedness between 4-digit industries. |
-| `io_relatedness_SNI07.parquet` | Input–output relatedness between 2-digit NACE Rev. 2 industries (SCB and Eurostat tables). |
-| `io_relatedness_SNI02.parquet` | Input–output relatedness between 2-digit NACE Rev. 1.1 industries (WIOD tables). |
+| `layers_layers_v1.npz` | Row-stochastic transition matrices of the relational sources over the shared 2,614-node graph (4-digit codes of SNI92/02/07 plus their 3-digit, 2-digit and section hubs; node order as in `src/latent_industry/graph/nodes.py`). Per source `<v>`: `<v>__P` (2614 × 2614) and `<v>__domain`. Sources: labor, ownership, io, hierarchy, transition_SNI92_SNI02, transition_SNI02_SNI07. |
+| `layer_diffusion_expanded_layers_v1.npz` | The 17 multi-scale diffusion targets the v16 embedding is trained on (`<view>_t<scale>__P`, 2614 × 2614, with `__domain`; target list in `target_ids`, source of each target in `families_json`). |
+| `labor_relatedness.parquet` | Labour-mobility relations between 4-digit industries (`sni_from`, `sni_to`, `phi`, `coding`). Industry pairs with fewer than 10 pooled job movers are excluded. |
+| `ownership_relatedness.parquet` (+ `.metadata.json`) | Common-ownership (corporate group) relations between 4-digit industries. |
+| `io_relatedness_SNI07.parquet` | Input–output relations between 2-digit NACE Rev. 2 industries (SCB and Eurostat tables). |
+| `io_relatedness_SNI02.parquet` | Input–output relations between 2-digit NACE Rev. 1.1 industries (WIOD tables). |
 
 ### Evaluation datasets — `processed/downstream_outcomes/`
 
@@ -51,7 +52,7 @@ SNI92/SNI02/SNI07 classification periods).
 | `startup_entry/` | `startup_entry` | Same candidates as `entry/`. 1 if a genuinely new firm (SCB firm-demography definition, following Grillitsch 2021) is founded in the cell at *t*+1 |
 
 Each panel has the columns `period`, `year`, `municipality`, `industry`,
-`density` and the outcome. `density` is the relatedness density of the
+`density` and the outcome. `density` is the opportunity density of the
 industry to the municipality's existing employment structure in the v16
 embedding space. File variants differ only in the density specification:
 
@@ -75,7 +76,7 @@ LATENT_DATA_ROOT=$PWD/data python scripts/regional/R02_fixed_effects_robustness.
 
 ## Restricted source data
 
-The embeddings, relational views and evaluation panels are aggregates derived
+The embeddings, relational sources and evaluation panels are aggregates derived
 from Swedish register data (Statistics Sweden) and public input–output and
 classification tables. They contain no individual- or firm-level records. The
 underlying raw data cannot be publicly shared due to legal, contractual and

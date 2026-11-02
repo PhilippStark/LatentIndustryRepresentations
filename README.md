@@ -1,21 +1,21 @@
 # Latent Industry Representations
-This project develops latent industry representations to study regional path development by integrating multiple forms of industry relatedness, including worker mobility, semantic similarity, hierarchical structures, and input–output relations. It further introduces an opportunity space framework that links these latent industry structures to regional economic composition, enabling the analysis of industry emergence, decline, and regional diversification within a shared latent space.
+This project develops latent industry representations to study regional path development by integrating several relational sources: labour mobility, common ownership, input–output relations, the classification hierarchy, and sentence embeddings of the official industry descriptions. It further introduces an opportunity space framework that links these latent industry structures to regional economic composition, enabling the analysis of industry emergence, decline, and regional diversification within a shared latent space.
 
 ## Data
-The learned industry embeddings, the matrices representing the relational views, and the evaluation datasets are in [`data/`](data/README.md). Set `LATENT_DATA_ROOT` to that folder to run the code against them.
+The learned industry embeddings, the matrices representing the relational sources, and the evaluation datasets are in [`data/`](data/README.md). Set `LATENT_DATA_ROOT` to that folder to run the code against them.
 
 ## Code
-Python 3.12; dependencies in `requirements.txt`. The main run is `shared_cosine_v16` on the graph `layers_v1` (details in [`results/shared_cosine_v16_SPECS.md`](results/shared_cosine_v16_SPECS.md)). Every script's defaults are the main run's settings.
+Python 3.12; dependencies in `requirements.txt`. The main run is `shared_cosine_v16` on the graph `layers_v1` (full configuration in [`data/embedding/shared_cosine_v16/training_provenance.json`](data/embedding/shared_cosine_v16/training_provenance.json)). Every script's defaults are the main run's settings.
 
 ```bash
 export LATENT_DATA_ROOT="$(pwd)/data"
 
-# 1. Relatedness sources (restricted SCB register data; public IO tables)
+# 1. Relational sources (restricted SCB register data; public IO tables)
 python scripts/data/build_labor_relatedness.py
 python scripts/data/build_ownership_relatedness.py
 python scripts/data/build_input_output_relatedness.py
 
-# 2. Industry graph: one transition matrix per view, then the diffusion targets
+# 2. Industry graph: one transition matrix per source, then the diffusion targets
 python scripts/graph/build_layer_transition_matrices.py --name layers_v1
 python scripts/graph/build_layer_diffusion_targets.py --name layers_v1
 
@@ -47,3 +47,6 @@ Steps 2–4 run on the released files in `data/` without access to the restricte
 | `scripts/` | Entry points, in pipeline order as above; `scripts/paper/` builds the paper's figures and tables; `scripts/robustness/` holds the spatial/temporal hold-out and seed-stability checks ([README](scripts/robustness/README.md)) |
 | `metadata/` | SNI code descriptions, version crosswalks, municipality tables |
 | `results/` | Evaluation output, regional estimates and robustness checks (`regional_fe_robustness/`, `regional_spatial_holdout/`, `regional_temporal_holdout/`, `seed_stability/`, `holdout_checks/`), and the paper's figures and tables (`results/paper/`) |
+
+## License and citation
+The code is released under the [MIT License](LICENSE). To cite the code and data, use [`CITATION.cff`](CITATION.cff) (GitHub: "Cite this repository").
